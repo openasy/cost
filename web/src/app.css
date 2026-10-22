@@ -1,0 +1,31 @@
+/* The few layouts this product needs that @openasy/ui's prebuilt styles do not include. Colours stay in the library's tokens. */
+
+/* One line of a long message in a table cell; the full text is in the title. */
+.cost-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 32rem;
+  overflow-wrap: anywhere;
+}
+
+/* Paths break anywhere rather than widening their column. */
+.cost-wrap {
+  overflow-wrap: anywhere;
+}
+
+.cost-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* A rule on one line: what it matches, then the team. */
+.cost-rule > * {
+  flex: 1 1 10rem;
+}
+
+.cost-rule > button {
+  flex: none;
+}

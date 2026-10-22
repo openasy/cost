@@ -1,0 +1,2257 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "OpenAsy Cost API",
+    "version": "0.1.0",
+    "summary": "Cloud spend by team and tag, with budgets, forecasts and anomaly alerts.",
+    "description": "Every screen of cost uses this API, and so can your scripts and pipelines (ADR 0014). Within `/api/v1` changes are additive only; anything removed is deprecated first (ADR 0024). Errors use Problem Details (RFC 9457).\n\nSend spend with `COST_INGEST_TOKEN`. Everything else takes the session of a signed-in person or an API token, and each operation names the role it needs (`x-openasy-role`: viewer, editor, admin; ADR 0003).\n\nSign-in, members and API tokens are under `/api/v1/auth`, provided by [@openasy/auth](https://github.com/openasy/auth#routes).",
+    "license": {
+      "name": "AGPL-3.0-only",
+      "identifier": "AGPL-3.0-only"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "This cost"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Records",
+      "description": "Spend in, from your pipelines."
+    },
+    {
+      "name": "Spend",
+      "description": "What was spent, by whom and on what."
+    },
+    {
+      "name": "Budgets",
+      "description": "Monthly amounts for a team or a tag."
+    },
+    {
+      "name": "Anomalies",
+      "description": "Days that cost far more than the days before them."
+    },
+    {
+      "name": "Settings",
+      "description": "The reporting currency, rates and who owns untagged spend."
+    },
+    {
+      "name": "Product",
+      "description": "Version and overview of this cost."
+    }
+  ],
+  "paths": {
+    "/api/v1/records": {
+      "post": {
+        "operationId": "sendRecords",
+        "tags": [
+          "Records"
+        ],
+        "summary": "Send spend",
+        "security": [
+          {
+            "ingestToken": []
+          },
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Takes spend lines from a pipeline: a JSON array (or `{ records: [...] }`), NDJSON, or CSV, optionally gzipped, up to 200,000 lines. Each line is `{ date, provider, account, service, amount, currency, region?, resource?, usageType?, tags? }`; in CSV, tags are columns named `tag:team`. A line with the same date, provider, account, service, region, resource, usage type and currency as one that exists replaces it, so a day can be sent again. Lines with the same key in one call are added together. A tag `team` names the owner; otherwise the rules under Rules do.\n\n```bash\naws ce get-cost-and-usage --time-period Start=2026-10-01,End=2026-10-15 --granularity DAILY --metrics UnblendedCost \\\n  --group-by Type=DIMENSION,Key=LINKED_ACCOUNT Type=DIMENSION,Key=SERVICE Type=TAG,Key=team \\\n  | node tools/ce-to-records.mjs \\\n  | curl -sf -X POST -H \"Authorization: Bearer $COST_INGEST_TOKEN\" -H 'content-type: application/json' --data-binary @- \\\n    https://cost.example.com/api/v1/records\n```\n\nTakes COST_INGEST_TOKEN, or an API token with the editor role.",
+        "parameters": [
+          {
+            "name": "replace",
+            "in": "query",
+            "required": false,
+            "description": "Clear the days in the call for their provider and account first, so lines the new export no longer has disappear.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            },
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string"
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kept. Sending a day again replaces it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "413": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "editor"
+      }
+    },
+    "/api/v1/spend": {
+      "get": {
+        "operationId": "getSpend",
+        "tags": [
+          "Spend"
+        ],
+        "summary": "Spend by team, service, tag or time",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Amounts are in the reporting currency. Lines in a currency nobody has set a rate for are left out of the totals and named in `missingRates`.\n\nNeeds the viewer role.",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "required": false,
+            "description": "What to group by.",
+            "schema": {
+              "type": "string",
+              "default": "team",
+              "description": "team, service, account, provider, region, day, week, month, or tag:<name>."
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "First day. Without it, the first of the month of `to`.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "Last day. Without it, the latest day with spend.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "description": "Only this provider.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "aws",
+                "gcp",
+                "azure",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "required": false,
+            "description": "Only this account.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "required": false,
+            "description": "Only this service.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "description": "Only this region.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team",
+            "in": "query",
+            "required": false,
+            "description": "Only this team, or `untagged` for spend nobody owns yet.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag.{name}",
+            "in": "query",
+            "required": false,
+            "description": "Only lines with this tag value, for example `tag.env=prod`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Totals, largest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Spend"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "viewer"
+      }
+    },
+    "/api/v1/spend/movers": {
+      "get": {
+        "operationId": "getMovers",
+        "tags": [
+          "Spend"
+        ],
+        "summary": "What moved",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the viewer role.",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "required": false,
+            "description": "What to group by: not a period.",
+            "schema": {
+              "type": "string",
+              "default": "service",
+              "description": "team, service, account, provider, region, day, week, month, or tag:<name>."
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "First day. Without it, the first of the month of `to`.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "Last day. Without it, the latest day with spend.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "description": "Only this provider.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "aws",
+                "gcp",
+                "azure",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "required": false,
+            "description": "Only this account.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "required": false,
+            "description": "Only this service.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "description": "Only this region.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "team",
+            "in": "query",
+            "required": false,
+            "description": "Only this team, or `untagged` for spend nobody owns yet.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag.{name}",
+            "in": "query",
+            "required": false,
+            "description": "Only lines with this tag value, for example `tag.env=prod`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ten biggest changes against the same length of time before.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Movers"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "viewer"
+      }
+    },
+    "/api/v1/summary": {
+      "get": {
+        "operationId": "getSummary",
+        "tags": [
+          "Product"
+        ],
+        "summary": "Overview",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the viewer role.",
+        "parameters": [
+          {
+            "name": "asOf",
+            "in": "query",
+            "required": false,
+            "description": "The day to look from. Without it, the latest day with spend.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "This month so far and where it ends.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "viewer"
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Settings",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the viewer role.",
+        "responses": {
+          "200": {
+            "description": "The reporting currency and the anomaly minimum.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "viewer"
+      },
+      "put": {
+        "operationId": "updateSettings",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Change settings",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Changing the reporting currency drops the rate of the new one, which is worth exactly itself.\n\nNeeds the admin role.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "admin"
+      }
+    },
+    "/api/v1/rates": {
+      "get": {
+        "operationId": "listRates",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "What other currencies are worth",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the viewer role.",
+        "responses": {
+          "200": {
+            "description": "Kept by an admin; nothing is fetched.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rates"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "viewer"
+      }
+    },
+    "/api/v1/rates/{currency}": {
+      "put": {
+        "operationId": "setRate",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Set a rate",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the admin role.",
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "path",
+            "required": true,
+            "description": "A three-letter code such as EUR.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The rate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rate"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "admin"
+      },
+      "delete": {
+        "operationId": "deleteRate",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Delete a rate",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the admin role.",
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "path",
+            "required": true,
+            "description": "A three-letter code.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "admin"
+      }
+    },
+    "/api/v1/rules": {
+      "get": {
+        "operationId": "listRules",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Who owns untagged spend",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the viewer role.",
+        "responses": {
+          "200": {
+            "description": "In order; the first match wins.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rules"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "viewer"
+      },
+      "put": {
+        "operationId": "replaceRules",
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Replace the rules",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "A team tag on a line wins over every rule. Rules match an account id, a service name (`*` and `?` are wildcards, case does not matter) or a tag value.\n\nNeeds the admin role.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRules"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The rules, and every line placed again by them.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rules"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "admin"
+      }
+    },
+    "/api/v1/budgets": {
+      "get": {
+        "operationId": "listBudgets",
+        "tags": [
+          "Budgets"
+        ],
+        "summary": "List budgets",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the viewer role.",
+        "parameters": [
+          {
+            "name": "asOf",
+            "in": "query",
+            "required": false,
+            "description": "The day to look from. Without it, the latest day with spend.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "With this month's spend, burn rate and forecast.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "viewer"
+      },
+      "post": {
+        "operationId": "createBudget",
+        "tags": [
+          "Budgets"
+        ],
+        "summary": "Add a budget",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "A monthly amount for a team or a tag, with alerts at 50%, 80% and 100%.\n\nNeeds the admin role.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewBudget"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Budget"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "409": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "admin"
+      }
+    },
+    "/api/v1/budgets/{id}": {
+      "delete": {
+        "operationId": "deleteBudget",
+        "tags": [
+          "Budgets"
+        ],
+        "summary": "Delete a budget",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the admin role.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The budget's id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "admin"
+      }
+    },
+    "/api/v1/anomalies": {
+      "get": {
+        "operationId": "listAnomalies",
+        "tags": [
+          "Anomalies"
+        ],
+        "summary": "List anomalies",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "A day of one service in one account that cost more than the mean of the 14 days before it plus three standard deviations, and by more than the anomaly minimum.\n\nNeeds the viewer role.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Only these.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "new",
+                "acknowledged",
+                "expected"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The previous page's nextCursor.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnomalyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "viewer"
+      }
+    },
+    "/api/v1/anomalies/{id}": {
+      "put": {
+        "operationId": "decideAnomaly",
+        "tags": [
+          "Anomalies"
+        ],
+        "summary": "Acknowledge or explain an anomaly",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the editor role.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The anomaly's id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideAnomaly"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The anomaly.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Anomaly"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "404": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "422": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "editor"
+      }
+    },
+    "/api/v1/version": {
+      "get": {
+        "operationId": "getVersion",
+        "tags": [
+          "Product"
+        ],
+        "summary": "Version",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The running version.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Version"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/products": {
+      "get": {
+        "operationId": "listProducts",
+        "tags": [
+          "Product"
+        ],
+        "summary": "Other products of this install",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "apiToken": []
+          },
+          {
+            "adminToken": []
+          }
+        ],
+        "description": "Needs the viewer role.",
+        "responses": {
+          "200": {
+            "description": "From OPENASY_PRODUCTS, for the product switcher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "403": {
+            "$ref": "#/components/responses/Problem"
+          },
+          "503": {
+            "$ref": "#/components/responses/Problem"
+          }
+        },
+        "x-openasy-role": "viewer"
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "liveness",
+        "tags": [
+          "Product"
+        ],
+        "summary": "Liveness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The process is running.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "readiness",
+        "tags": [
+          "Product"
+        ],
+        "summary": "Readiness",
+        "description": "Ready while the database answers.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Ready to serve.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "metrics",
+        "tags": [
+          "Product"
+        ],
+        "summary": "Prometheus metrics",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Metrics in the Prometheus text format.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-openasy-session",
+        "description": "The browser session after signing in (`openasy-session` when cost runs on plain http://localhost). Requests that change something must come from the cost origin."
+      },
+      "apiToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "An API token created under Settings \u2192 API tokens (`oa_cost_...`): one role, always an expiry (ADR 0003)."
+      },
+      "adminToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Only when cost is started by its tests or a local script: one shared token with the admin role. A production install does not have it."
+      },
+      "ingestToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`COST_INGEST_TOKEN`: for pipelines. It can send spend, nothing else."
+      }
+    },
+    "responses": {
+      "Problem": {
+        "description": "An error, as RFC 9457 Problem Details.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/Problem"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid-token",
+              "invalid-json",
+              "invalid-body",
+              "conflict",
+              "invalid-records",
+              "not-found",
+              "not-configured",
+              "payload-too-large",
+              "internal-error",
+              "unauthenticated",
+              "invalid-credentials",
+              "mfa-required",
+              "mfa-setup-required",
+              "forbidden",
+              "cross-site",
+              "rate-limited"
+            ],
+            "description": "Stable; match on this."
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "ProductLink": {
+        "type": "object",
+        "required": [
+          "id",
+          "url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The product, as OpenAsy names it.",
+            "examples": [
+              "infrastructure"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The address people open it at.",
+            "examples": [
+              "https://infra.example.com"
+            ]
+          }
+        }
+      },
+      "ProductList": {
+        "type": "object",
+        "required": [
+          "products"
+        ],
+        "properties": {
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductLink"
+            }
+          }
+        }
+      },
+      "Status": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "Version": {
+        "type": "object",
+        "required": [
+          "product",
+          "version"
+        ],
+        "properties": {
+          "product": {
+            "const": "cost"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "Summary": {
+        "type": "object",
+        "required": [
+          "currency",
+          "asOf",
+          "month",
+          "hasData",
+          "monthToDate",
+          "forecast",
+          "dailyRunRate",
+          "previousMonth",
+          "topTeams",
+          "topServices",
+          "untaggedShare",
+          "anomaliesOpen",
+          "budgetsAtRisk",
+          "missingRates"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date"
+          },
+          "month": {
+            "type": "string"
+          },
+          "hasData": {
+            "type": "boolean"
+          },
+          "monthToDate": {
+            "type": "number",
+            "description": "Spend so far this month."
+          },
+          "forecast": {
+            "type": "number",
+            "description": "Where the month ends if the last seven days' rate holds."
+          },
+          "dailyRunRate": {
+            "type": "number",
+            "description": "The last seven days, per day."
+          },
+          "previousMonth": {
+            "type": "number",
+            "description": "The whole of the month before."
+          },
+          "topTeams": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "key",
+                "amount"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number",
+                  "description": "In the reporting currency."
+                }
+              }
+            }
+          },
+          "topServices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "key",
+                "amount"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number",
+                  "description": "In the reporting currency."
+                }
+              }
+            }
+          },
+          "untaggedShare": {
+            "type": "number",
+            "description": "Share of this month's spend that nobody owns yet, 0 to 1."
+          },
+          "anomaliesOpen": {
+            "type": "integer"
+          },
+          "budgetsAtRisk": {
+            "type": "integer",
+            "description": "Budgets that passed 50% or are forecast to pass 100%."
+          },
+          "missingRates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Currencies left out of the figures because no rate says what they are worth."
+          }
+        }
+      },
+      "RecordsResult": {
+        "type": "object",
+        "required": [
+          "received",
+          "lines",
+          "replaced",
+          "from",
+          "to",
+          "anomaliesOpen"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "received": {
+            "type": "integer",
+            "description": "Lines in the call."
+          },
+          "lines": {
+            "type": "integer",
+            "description": "Lines kept: those with the same key are added together."
+          },
+          "replaced": {
+            "type": "integer",
+            "description": "Kept lines that already existed and were replaced."
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "anomaliesOpen": {
+            "type": "integer"
+          }
+        }
+      },
+      "Group": {
+        "type": "object",
+        "required": [
+          "key",
+          "amount",
+          "share"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "description": "In the reporting currency."
+          },
+          "share": {
+            "type": "number",
+            "description": "0 to 1 of the total."
+          }
+        }
+      },
+      "Spend": {
+        "type": "object",
+        "required": [
+          "currency",
+          "from",
+          "to",
+          "groupBy",
+          "total",
+          "untagged",
+          "groups",
+          "missingRates"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "groupBy": {
+            "type": "string"
+          },
+          "total": {
+            "type": "number"
+          },
+          "untagged": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "share"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "share": {
+                    "type": "number"
+                  }
+                }
+              }
+            ],
+            "description": "Spend nobody owns yet. Null when the filter already names a team."
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Group"
+            },
+            "description": "Largest first; for day, week and month, in time order."
+          },
+          "missingRates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Movers": {
+        "type": "object",
+        "required": [
+          "currency",
+          "period",
+          "previousPeriod",
+          "groupBy",
+          "movers",
+          "missingRates"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "period": {
+            "type": "object",
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          },
+          "previousPeriod": {
+            "type": "object",
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          },
+          "groupBy": {
+            "type": "string"
+          },
+          "movers": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "required": [
+                "key",
+                "current",
+                "previous",
+                "change",
+                "changePercent"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "current": {
+                  "type": "number"
+                },
+                "previous": {
+                  "type": "number"
+                },
+                "change": {
+                  "type": "number"
+                },
+                "changePercent": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "description": "Null when there was nothing before."
+                }
+              }
+            }
+          },
+          "missingRates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Settings": {
+        "type": "object",
+        "required": [
+          "currency",
+          "anomalyMinimum"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string",
+            "description": "The reporting currency."
+          },
+          "anomalyMinimum": {
+            "type": "number",
+            "description": "A day must cost this much more than usual, in the reporting currency, to be an anomaly."
+          }
+        }
+      },
+      "UpdateSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "anomalyMinimum": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "Rate": {
+        "type": "object",
+        "required": [
+          "currency",
+          "rate"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "rate": {
+            "type": "number",
+            "description": "What one unit is worth in the reporting currency."
+          }
+        }
+      },
+      "Rates": {
+        "type": "object",
+        "required": [
+          "currency",
+          "rates"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "rates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Rate"
+            }
+          }
+        }
+      },
+      "NewRate": {
+        "type": "object",
+        "required": [
+          "rate"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rate": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      },
+      "Rule": {
+        "type": "object",
+        "required": [
+          "kind",
+          "match",
+          "tagKey",
+          "team"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "account",
+              "service",
+              "tag"
+            ]
+          },
+          "match": {
+            "type": "string",
+            "description": "An account id, a service name with * and ? as wildcards, or a tag value."
+          },
+          "tagKey": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "For tag rules."
+          },
+          "team": {
+            "type": "string"
+          }
+        }
+      },
+      "Rules": {
+        "type": "object",
+        "required": [
+          "rules"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Rule"
+            }
+          }
+        }
+      },
+      "NewRules": {
+        "type": "object",
+        "required": [
+          "rules"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rules": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "match",
+                "team"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "account",
+                    "service",
+                    "tag"
+                  ]
+                },
+                "match": {
+                  "type": "string"
+                },
+                "tagKey": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Budget": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "scope",
+          "tagKey",
+          "value",
+          "amount",
+          "month",
+          "asOf",
+          "spent",
+          "percent",
+          "burnRate",
+          "forecast",
+          "forecastPercent",
+          "thresholds",
+          "reached",
+          "state",
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "team",
+              "tag"
+            ]
+          },
+          "tagKey": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "value": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Monthly."
+          },
+          "month": {
+            "type": "string"
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date"
+          },
+          "spent": {
+            "type": "number"
+          },
+          "percent": {
+            "type": "number"
+          },
+          "burnRate": {
+            "type": "number",
+            "description": "Spend against the straight line to the budget: 1 is on pace, above 1 runs out early."
+          },
+          "forecast": {
+            "type": "number"
+          },
+          "forecastPercent": {
+            "type": "number"
+          },
+          "thresholds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "reached": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer",
+                "enum": [
+                  50,
+                  80,
+                  100
+                ]
+              }
+            ],
+            "description": "The highest threshold passed."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "warning",
+              "alert",
+              "over"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          }
+        }
+      },
+      "BudgetList": {
+        "type": "object",
+        "required": [
+          "budgets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "budgets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Budget"
+            }
+          }
+        }
+      },
+      "NewBudget": {
+        "type": "object",
+        "required": [
+          "name",
+          "scope",
+          "value",
+          "amount"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "team",
+              "tag"
+            ]
+          },
+          "tagKey": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      },
+      "Anomaly": {
+        "type": "object",
+        "required": [
+          "id",
+          "date",
+          "account",
+          "service",
+          "amount",
+          "usual",
+          "deviation",
+          "extra",
+          "status",
+          "reason",
+          "decidedBy",
+          "decidedAt",
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "account": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "description": "What the day cost."
+          },
+          "usual": {
+            "type": "number",
+            "description": "The mean of the 14 days before."
+          },
+          "deviation": {
+            "type": "number",
+            "description": "Their standard deviation."
+          },
+          "extra": {
+            "type": "number",
+            "description": "How much more than usual."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "acknowledged",
+              "expected"
+            ]
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "decidedBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "decidedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "currency": {
+            "type": "string"
+          }
+        }
+      },
+      "AnomalyList": {
+        "type": "object",
+        "required": [
+          "anomalies"
+        ],
+        "properties": {
+          "anomalies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Anomaly"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Pass the previous page's nextCursor to get the next page."
+          }
+        }
+      },
+      "DecideAnomaly": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "new",
+              "acknowledged",
+              "expected"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Required for expected."
+          }
+        }
+      }
+    }
+  }
+}
