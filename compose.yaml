@@ -23,9 +23,9 @@ services:
       # For the pipeline: it can send spend and nothing else. Or use an API token with the editor role from Settings.
       COST_INGEST_TOKEN: ${COST_INGEST_TOKEN:-}
       # Sign in with your identity provider (OIDC), see the README:
-      # COST_OIDC_ISSUER: https://login.example.com
-      # COST_OIDC_CLIENT_ID: cost
-      # COST_OIDC_CLIENT_SECRET: ${COST_OIDC_CLIENT_SECRET}
+      # OPENASY_OIDC_ISSUER: https://login.example.com
+      # OPENASY_OIDC_CLIENT_ID: cost
+      # OPENASY_OIDC_CLIENT_SECRET: ${OPENASY_OIDC_CLIENT_SECRET}
 
 volumes:
   cost-data:

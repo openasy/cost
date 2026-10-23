@@ -85,7 +85,7 @@ are on http://localhost:8080, the API reference at http://localhost:8080/api/doc
 | `COST_RETENTION_DAYS` | `800` | Spend older than this is deleted; the default keeps two years to compare with |
 | `COST_METRICS_PORT` | | Serve `/metrics` on this port only (ADR 0026) |
 | `COST_HEADLESS` | `false` | `true` serves only the API |
-| `COST_PASSWORD_SIGN_IN`, `COST_OIDC_*` | | Sign-in, as in every OpenAsy product ([@openasy/auth](https://github.com/openasy/auth)) |
+| `COST_PASSWORD_SIGN_IN`, `OPENASY_OIDC_*` | | Sign-in, as in every OpenAsy product ([@openasy/auth](https://github.com/openasy/auth)) |
 
 `/metrics` has `openasy_cost_month_to_date{team,currency}`, `openasy_cost_budget_percent{budget}`,
 `openasy_cost_budget_burn_rate{budget}` and `openasy_cost_anomalies_open`, to alert on in your own Prometheus.
