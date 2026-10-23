@@ -25,9 +25,40 @@ import {
   useThemePreference,
 } from "@openasy/ui";
 import { AccountSettings, AuthGate, MembersSettings, SignInSettings, TokensSettings, useAuth } from "@openasy/auth/react";
-import { BellRing, ChartColumn, Coins, KeyRound, LayoutDashboard, LogIn, LogOut, Plus, Settings2, SlidersHorizontal, Trash2, UserRound, Users, Wallet, Waypoints } from "lucide-react";
+import {
+  BellRing,
+  ChartColumn,
+  Coins,
+  KeyRound,
+  LayoutDashboard,
+  LogIn,
+  LogOut,
+  Plus,
+  Settings2,
+  SlidersHorizontal,
+  Trash2,
+  UserRound,
+  Users,
+  Wallet,
+  Waypoints,
+} from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { api, MfaSetupRequired, Unauthorized, type Anomaly, type AnomalyStatus, type Budget, type BudgetState, type Movers, type ProductLink, type Rate, type Rule, type Settings, type Spend, type Summary } from "./api.ts";
+import {
+  api,
+  MfaSetupRequired,
+  Unauthorized,
+  type Anomaly,
+  type AnomalyStatus,
+  type Budget,
+  type BudgetState,
+  type Movers,
+  type ProductLink,
+  type Rate,
+  type Rule,
+  type Settings,
+  type Spend,
+  type Summary,
+} from "./api.ts";
 import { useT, type T } from "./i18n.ts";
 
 const PAGES = ["spend", "budgets", "anomalies", "rules", "settings", "setup", "account", "members", "signin", "tokens"] as const;
@@ -79,7 +110,8 @@ function MissingRates({ currencies }: { currencies: string[] }) {
   if (!currencies.length) return null;
   return (
     <Callout tone="warning" title={t("missingRates.spendInIsLeftOut", { value: currencies.join(", ") })}>
-      {t("missingRates.nobodyHasSaidWhat")}{" "}{currencies.length === 1 ? t("missingRates.itIs") : t("missingRates.theyAre")} {t("missingRates.worthInTheReportingCurrency")}{" "}<a href="/settings">{t("missingRates.settings")}</a>.
+      {t("missingRates.nobodyHasSaidWhat")} {currencies.length === 1 ? t("missingRates.itIs") : t("missingRates.theyAre")}{" "}
+      {t("missingRates.worthInTheReportingCurrency")} <a href="/settings">{t("missingRates.settings")}</a>.
     </Callout>
   );
 }
@@ -110,7 +142,15 @@ function OverviewPage({ call, summary }: { call: Call; summary: Summary }) {
         <KpiCard
           label={msg("overviewPage.forecastForTheMonth")}
           value={money(s.forecast, c)}
-          delta={vsLast === null ? undefined : { label: msg("overviewPage.onLastMonth", { value: vsLast > 0 ? "+" : "", percent: percent(vsLast) }), direction: vsLast > 0 ? "up" : vsLast < 0 ? "down" : "flat", intent: vsLast > 0.05 ? "bad" : "neutral" }}
+          delta={
+            vsLast === null
+              ? undefined
+              : {
+                  label: msg("overviewPage.onLastMonth", { value: vsLast > 0 ? "+" : "", percent: percent(vsLast) }),
+                  direction: vsLast > 0 ? "up" : vsLast < 0 ? "down" : "flat",
+                  intent: vsLast > 0.05 ? "bad" : "neutral",
+                }
+          }
         />
         <KpiCard label={msg("overviewPage.perDayLast7Days")} value={money(s.dailyRunRate, c)} />
         <KpiCard label={msg("overviewPage.nobodyOwns")} value={percent(s.untaggedShare)} tone={s.untaggedShare > 0.2 ? "warning" : "success"} href="/rules" />
@@ -119,19 +159,46 @@ function OverviewPage({ call, summary }: { call: Call; summary: Summary }) {
       </KpiGrid>
       {daily && daily.groups.length > 1 && (
         <Panel title={msg("overviewPage.spendPerDay")}>
-          <TimeSeriesChart label={msg("overviewPage.spendPerDay")} series={[{ id: "spend", name: "Spend", data: daily.groups.map((g) => g.amount) }]} labels={daily.groups.map((g) => day(g.key))} format={(v) => money(v, c)} area height={180} />
+          <TimeSeriesChart
+            label={msg("overviewPage.spendPerDay")}
+            series={[{ id: "spend", name: "Spend", data: daily.groups.map((g) => g.amount) }]}
+            labels={daily.groups.map((g) => day(g.key))}
+            format={(v) => money(v, c)}
+            area
+            height={180}
+          />
         </Panel>
       )}
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel title={msg("overviewPage.teamsThisMonth")} description={msg("overviewPage.aTeamTagOnA")}>
-          {s.topTeams.length ? <BarList label={msg("overviewPage.spendByTeam")} items={s.topTeams.map((t) => ({ id: t.key, label: t.key, value: t.amount, href: `/spend?groupBy=service&team=${encodeURIComponent(t.key)}` }))} format={(v) => money(v, c)} /> : <p className="m-0 text-sm text-fg-muted">{msg("overviewPage.noSpendThisMonth")}</p>}
+          {s.topTeams.length ? (
+            <BarList
+              label={msg("overviewPage.spendByTeam")}
+              items={s.topTeams.map((t) => ({ id: t.key, label: t.key, value: t.amount, href: `/spend?groupBy=service&team=${encodeURIComponent(t.key)}` }))}
+              format={(v) => money(v, c)}
+            />
+          ) : (
+            <p className="m-0 text-sm text-fg-muted">{msg("overviewPage.noSpendThisMonth")}</p>
+          )}
         </Panel>
         <Panel title={msg("overviewPage.servicesThisMonth")}>
-          {s.topServices.length ? <BarList label={msg("overviewPage.spendByService")} items={s.topServices.map((t) => ({ id: t.key, label: t.key, value: t.amount }))} format={(v) => money(v, c)} /> : <p className="m-0 text-sm text-fg-muted">{msg("overviewPage.noSpendThisMonth")}</p>}
+          {s.topServices.length ? (
+            <BarList
+              label={msg("overviewPage.spendByService")}
+              items={s.topServices.map((t) => ({ id: t.key, label: t.key, value: t.amount }))}
+              format={(v) => money(v, c)}
+            />
+          ) : (
+            <p className="m-0 text-sm text-fg-muted">{msg("overviewPage.noSpendThisMonth")}</p>
+          )}
         </Panel>
       </div>
       {movers && movers.movers.length > 0 && (
-        <Panel title={msg("overviewPage.whatMoved")} description={msg("overviewPage.toAgainstTheSameNumber", { day: day(movers.period.from), day2: day(movers.period.to) })} flush>
+        <Panel
+          title={msg("overviewPage.whatMoved")}
+          description={msg("overviewPage.toAgainstTheSameNumber", { day: day(movers.period.from), day2: day(movers.period.to) })}
+          flush
+        >
           <MoversTable movers={movers} />
         </Panel>
       )}
@@ -166,7 +233,7 @@ function MoversTable({ movers }: { movers: Movers }) {
 
 // ---------------------------------------------------------------- Spend
 
-const GROUPS = (t: T) => ([
+const GROUPS = (t: T) => [
   { value: "team", label: t("groups.team") },
   { value: "service", label: t("groups.service") },
   { value: "account", label: t("groups.account") },
@@ -175,14 +242,14 @@ const GROUPS = (t: T) => ([
   { value: "day", label: t("groups.day") },
   { value: "week", label: t("groups.week") },
   { value: "month", label: t("groups.month") },
-]);
+];
 type Period = "month" | "last-month" | "30" | "90";
-const PERIODS = (t: T): Array<{ value: Period; label: string }> => ([
+const PERIODS = (t: T): Array<{ value: Period; label: string }> => [
   { value: "month", label: t("periods.thisMonth") },
   { value: "last-month", label: t("periods.lastMonth") },
   { value: "30", label: t("periods.n30Days") },
   { value: "90", label: t("periods.n90Days") },
-]);
+];
 
 function periodOf(period: Period, asOf: string): { from: string; to: string } {
   const at = Date.parse(`${asOf}T00:00:00Z`);
@@ -212,7 +279,10 @@ function SpendPage({ call, summary }: { call: Call; summary: Summary }) {
     const { from, to } = periodOf(period, summary.asOf);
     const q = new URLSearchParams({ groupBy: by, from, to, ...(team && { team }) });
     setSpend(undefined);
-    call<Spend>(`/api/v1/spend?${q}`).then((s) => (setSpend(s), setError(undefined)), (err: Error) => setError(err.message));
+    call<Spend>(`/api/v1/spend?${q}`).then(
+      (s) => (setSpend(s), setError(undefined)),
+      (err: Error) => setError(err.message),
+    );
     if (!["day", "week", "month"].includes(by)) void call<Movers>(`/api/v1/spend/movers?${q}`).then(setMovers, () => setMovers(undefined));
     else setMovers(undefined);
   }, [call, by, period, team, summary.asOf]);
@@ -220,36 +290,86 @@ function SpendPage({ call, summary }: { call: Call; summary: Summary }) {
   const c = summary.currency;
   const isTime = ["day", "week", "month"].includes(by);
   const columns: Column<Spend["groups"][number]>[] = [
-    { id: "key", header: GROUPS(t).find((g) => g.value === groupBy)?.label ?? t("spendPage.tag", { tagKey }), width: "40%", sortValue: (g) => g.key, cell: (g) => <span className="cost-wrap font-medium">{isTime ? g.key : g.key || "(none)"}</span> },
+    {
+      id: "key",
+      header: GROUPS(t).find((g) => g.value === groupBy)?.label ?? t("spendPage.tag", { tagKey }),
+      width: "40%",
+      sortValue: (g) => g.key,
+      cell: (g) => <span className="cost-wrap font-medium">{isTime ? g.key : g.key || "(none)"}</span>,
+    },
     { id: "amount", header: t("spendPage.spend"), align: "right", sortValue: (g) => g.amount, cell: (g) => money(g.amount, c) },
     { id: "share", header: t("spendPage.share"), align: "right", sortValue: (g) => g.share, cell: (g) => percent(g.share) },
   ];
   return (
     <>
-      <PageHeader title={t("spendPage.spend")} description={spend ? t("spendPage.fromTo", { money: money(spend.total, c), day: day(spend.from), day2: day(spend.to), value: team ? ` · team ${team}` : "" }) : undefined} />
+      <PageHeader
+        title={t("spendPage.spend")}
+        description={
+          spend
+            ? t("spendPage.fromTo", { money: money(spend.total, c), day: day(spend.from), day2: day(spend.to), value: team ? ` · team ${team}` : "" })
+            : undefined
+        }
+      />
       <div className="flex flex-wrap items-end gap-2">
         <SegmentedControl label={t("spendPage.period")} value={period} onChange={setPeriod} options={PERIODS(t)} />
-        <SelectField label={t("spendPage.groupBy")} value={groupBy} onChange={(e) => setGroupBy(e.target.value)} options={[...GROUPS(t), { value: "tag", label: t("spendPage.aTag") }]} />
-        {groupBy === "tag" && <TextField label={t("spendPage.tagName")} value={tagKey} onChange={(e) => setTagKey(e.target.value)} hint={t("spendPage.suchAsEnv")} />}
+        <SelectField
+          label={t("spendPage.groupBy")}
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value)}
+          options={[...GROUPS(t), { value: "tag", label: t("spendPage.aTag") }]}
+        />
+        {groupBy === "tag" && (
+          <TextField label={t("spendPage.tagName")} value={tagKey} onChange={(e) => setTagKey(e.target.value)} hint={t("spendPage.suchAsEnv")} />
+        )}
         <TextField label={t("spendPage.team")} value={team} onChange={(e) => setTeam(e.target.value)} hint={t("spendPage.emptyForAllUntaggedFor")} />
       </div>
-      {error && <Callout tone="danger" title={t("spendPage.couldNotReadTheSpend")}>{error}</Callout>}
+      {error && (
+        <Callout tone="danger" title={t("spendPage.couldNotReadTheSpend")}>
+          {error}
+        </Callout>
+      )}
       {spend && <MissingRates currencies={spend.missingRates} />}
       {spend?.untagged && spend.untagged.amount > 0 && (
         <p className="m-0 text-sm text-fg-muted">
-          {money(spend.untagged.amount, c)} ({percent(spend.untagged.share)}{t("spendPage.hasNoTeamYetGive")}{" "}<a href="/rules">{t("spendPage.rules")}</a>.
+          {money(spend.untagged.amount, c)} ({percent(spend.untagged.share)}
+          {t("spendPage.hasNoTeamYetGive")} <a href="/rules">{t("spendPage.rules")}</a>.
         </p>
       )}
       {spend && isTime && spend.groups.length > 1 && (
         <Panel title={t("spendPage.overTime")}>
-          <TimeSeriesChart label={t("spendPage.spendOverTime")} series={[{ id: "spend", name: "Spend", data: spend.groups.map((g) => g.amount) }]} labels={spend.groups.map((g) => g.key)} format={(v) => money(v, c)} area height={180} />
+          <TimeSeriesChart
+            label={t("spendPage.spendOverTime")}
+            series={[{ id: "spend", name: "Spend", data: spend.groups.map((g) => g.amount) }]}
+            labels={spend.groups.map((g) => g.key)}
+            format={(v) => money(v, c)}
+            area
+            height={180}
+          />
         </Panel>
       )}
       <Panel flush>
-        <DataTable label={t("spendPage.spend")} columns={columns} rows={spend?.groups ?? []} loading={!spend && !error && !!by} getRowId={(g) => g.key} minWidth={520} pageSize={50} empty={<EmptyState title={t("spendPage.noSpend")}>{t("spendPage.nothingWasSpentInThis")}{team ? t("spendPage.byThisTeam") : ""}.</EmptyState>} />
+        <DataTable
+          label={t("spendPage.spend")}
+          columns={columns}
+          rows={spend?.groups ?? []}
+          loading={!spend && !error && !!by}
+          getRowId={(g) => g.key}
+          minWidth={520}
+          pageSize={50}
+          empty={
+            <EmptyState title={t("spendPage.noSpend")}>
+              {t("spendPage.nothingWasSpentInThis")}
+              {team ? t("spendPage.byThisTeam") : ""}.
+            </EmptyState>
+          }
+        />
       </Panel>
       {movers && movers.movers.length > 0 && (
-        <Panel title={t("spendPage.whatMoved")} description={t("spendPage.againstTo", { day: day(movers.previousPeriod.from), day2: day(movers.previousPeriod.to) })} flush>
+        <Panel
+          title={t("spendPage.whatMoved")}
+          description={t("spendPage.againstTo", { day: day(movers.previousPeriod.from), day2: day(movers.previousPeriod.to) })}
+          flush
+        >
           <MoversTable movers={movers} />
         </Panel>
       )}
@@ -273,7 +393,10 @@ function BudgetDialog({ call, currency, onClose, onSaved }: { call: Call; curren
   const save = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await call("/api/v1/budgets", { method: "POST", body: JSON.stringify({ name, scope, value, amount: Number(amount), ...(scope === "tag" && { tagKey }) }) });
+      await call("/api/v1/budgets", {
+        method: "POST",
+        body: JSON.stringify({ name, scope, value, amount: Number(amount), ...(scope === "tag" && { tagKey }) }),
+      });
       onSaved();
     } catch (err) {
       setError((err as Error).message);
@@ -308,10 +431,23 @@ function BudgetDialog({ call, currency, onClose, onSaved }: { call: Call; curren
         ]}
       />
       <div className="grid grid-cols-2 gap-2">
-        {scope === "tag" && <TextField label={t("budgetDialog.tagName")} value={tagKey} onChange={(e) => setTagKey(e.target.value)} hint={t("budgetDialog.suchAsEnv")} />}
-        <TextField label={scope === "team" ? t("budgetDialog.team") : t("budgetDialog.tagValue")} value={value} onChange={(e) => setValue(e.target.value)} hint={scope === "tag" ? t("budgetDialog.suchAsProd") : undefined} />
+        {scope === "tag" && (
+          <TextField label={t("budgetDialog.tagName")} value={tagKey} onChange={(e) => setTagKey(e.target.value)} hint={t("budgetDialog.suchAsEnv")} />
+        )}
+        <TextField
+          label={scope === "team" ? t("budgetDialog.team") : t("budgetDialog.tagValue")}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          hint={scope === "tag" ? t("budgetDialog.suchAsProd") : undefined}
+        />
       </div>
-      <TextField label={t("budgetDialog.eachMonth", { currency })} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} error={error} />
+      <TextField
+        label={t("budgetDialog.eachMonth", { currency })}
+        inputMode="decimal"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        error={error}
+      />
     </Dialog>
   );
 }
@@ -322,12 +458,24 @@ function BudgetsPage({ call, summary, reload }: { call: Call; summary: Summary; 
   const [budgets, setBudgets] = useState<Budget[]>();
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Budget>();
-  const load = useCallback(() => void call<{ budgets: Budget[] }>("/api/v1/budgets").then((r) => setBudgets(r.budgets), () => setBudgets([])), [call]);
+  const load = useCallback(
+    () =>
+      void call<{ budgets: Budget[] }>("/api/v1/budgets").then(
+        (r) => setBudgets(r.budgets),
+        () => setBudgets([]),
+      ),
+    [call],
+  );
   useEffect(load, [load]);
 
   const c = summary.currency;
   const columns: Column<Budget>[] = [
-    { id: "state", header: t("budgetsPage.state"), width: "110px", cell: (b) => <StatusBadge tone={BUDGET_TONE[b.state]}>{BUDGET_LABEL(t)[b.state]}</StatusBadge> },
+    {
+      id: "state",
+      header: t("budgetsPage.state"),
+      width: "110px",
+      cell: (b) => <StatusBadge tone={BUDGET_TONE[b.state]}>{BUDGET_LABEL(t)[b.state]}</StatusBadge>,
+    },
     {
       id: "name",
       header: t("budgetsPage.budget"),
@@ -342,9 +490,31 @@ function BudgetsPage({ call, summary, reload }: { call: Call; summary: Summary; 
     },
     { id: "spent", header: t("budgetsPage.spent"), align: "right", sortValue: (b) => b.percent, cell: (b) => `${money(b.spent, c)} (${b.percent}%)` },
     { id: "amount", header: t("budgetsPage.budget"), align: "right", cell: (b) => money(b.amount, c) },
-    { id: "forecast", header: t("budgetsPage.forecast"), align: "right", sortValue: (b) => b.forecastPercent, cell: (b) => <span className={b.forecastPercent >= 100 ? "text-danger" : undefined}>{`${money(b.forecast, c)} (${b.forecastPercent}%)`}</span> },
-    { id: "burn", header: t("budgetsPage.burnRate"), align: "right", sortValue: (b) => b.burnRate, cell: (b) => <span className={b.burnRate > 1 ? "text-warning" : undefined}>{b.burnRate.toFixed(2)}</span> },
-    ...(can("admin") ? [{ id: "remove", header: "", align: "right" as const, width: "56px", cell: (b: Budget) => <Button size="sm" icon={<Trash2 />} aria-label={t("budgetsPage.delete", { name: b.name })} onClick={() => setRemoving(b)} /> }] : []),
+    {
+      id: "forecast",
+      header: t("budgetsPage.forecast"),
+      align: "right",
+      sortValue: (b) => b.forecastPercent,
+      cell: (b) => <span className={b.forecastPercent >= 100 ? "text-danger" : undefined}>{`${money(b.forecast, c)} (${b.forecastPercent}%)`}</span>,
+    },
+    {
+      id: "burn",
+      header: t("budgetsPage.burnRate"),
+      align: "right",
+      sortValue: (b) => b.burnRate,
+      cell: (b) => <span className={b.burnRate > 1 ? "text-warning" : undefined}>{b.burnRate.toFixed(2)}</span>,
+    },
+    ...(can("admin")
+      ? [
+          {
+            id: "remove",
+            header: "",
+            align: "right" as const,
+            width: "56px",
+            cell: (b: Budget) => <Button size="sm" icon={<Trash2 />} aria-label={t("budgetsPage.delete", { name: b.name })} onClick={() => setRemoving(b)} />,
+          },
+        ]
+      : []),
   ];
   return (
     <>
@@ -361,7 +531,19 @@ function BudgetsPage({ call, summary, reload }: { call: Call; summary: Summary; 
       />
       <MissingRates currencies={summary.missingRates} />
       <Panel flush>
-        <DataTable label={t("budgetsPage.budgets")} columns={columns} rows={budgets ?? []} loading={!budgets} getRowId={(b) => b.id} minWidth={860} empty={<EmptyState title={t("budgetsPage.noBudgetsYet")}>{can("admin") ? t("budgetsPage.addAMonthlyBudgetFor") : t("budgetsPage.anAdminAddsTheBudgets")}</EmptyState>} />
+        <DataTable
+          label={t("budgetsPage.budgets")}
+          columns={columns}
+          rows={budgets ?? []}
+          loading={!budgets}
+          getRowId={(b) => b.id}
+          minWidth={860}
+          empty={
+            <EmptyState title={t("budgetsPage.noBudgetsYet")}>
+              {can("admin") ? t("budgetsPage.addAMonthlyBudgetFor") : t("budgetsPage.anAdminAddsTheBudgets")}
+            </EmptyState>
+          }
+        />
       </Panel>
       <p className="m-0 text-xs text-fg-muted">{t("budgetsPage.theForecastIsTheSpend")}</p>
       {adding && (
@@ -434,7 +616,11 @@ function DecideDialog({ anomaly, call, onClose, onSaved }: { anomaly: Anomaly; c
       open
       onOpenChange={(o) => !o && onClose()}
       title={t("decideDialog.on", { service: anomaly.service, day: day(anomaly.date) })}
-      description={t("decideDialog.againstAUsualInAccount", { money: money(anomaly.amount, anomaly.currency), money2: money(anomaly.usual, anomaly.currency), account: anomaly.account })}
+      description={t("decideDialog.againstAUsualInAccount", {
+        money: money(anomaly.amount, anomaly.currency),
+        money2: money(anomaly.usual, anomaly.currency),
+        account: anomaly.account,
+      })}
       onSubmit={save}
       footer={
         <>
@@ -457,7 +643,13 @@ function DecideDialog({ anomaly, call, onClose, onSaved }: { anomaly: Anomaly; c
           { value: "new", label: t("decideDialog.newNobodyHasLooked") },
         ]}
       />
-      <TextField label={t("decideDialog.reason")} value={reason} onChange={(e) => setReason(e.target.value)} hint={status === "expected" ? t("decideDialog.requiredALoadTestA") : t("decideDialog.optional")} error={error} />
+      <TextField
+        label={t("decideDialog.reason")}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        hint={status === "expected" ? t("decideDialog.requiredALoadTestA") : t("decideDialog.optional")}
+        error={error}
+      />
     </Dialog>
   );
 }
@@ -470,12 +662,21 @@ function AnomaliesPage({ call, summary, reload }: { call: Call; summary: Summary
   const [deciding, setDeciding] = useState<Anomaly>();
   const load = useCallback(() => {
     setRows(undefined);
-    void call<{ anomalies: Anomaly[] }>(`/api/v1/anomalies?status=${tab}&limit=500`).then((r) => setRows(r.anomalies), () => setRows([]));
+    void call<{ anomalies: Anomaly[] }>(`/api/v1/anomalies?status=${tab}&limit=500`).then(
+      (r) => setRows(r.anomalies),
+      () => setRows([]),
+    );
   }, [call, tab]);
   useEffect(load, [load]);
 
   const columns: Column<Anomaly>[] = [
-    { id: "date", header: t("anomaliesPage.day"), width: "90px", sortValue: (a) => a.date, cell: (a) => <span className="whitespace-nowrap text-xs">{day(a.date)}</span> },
+    {
+      id: "date",
+      header: t("anomaliesPage.day"),
+      width: "90px",
+      sortValue: (a) => a.date,
+      cell: (a) => <span className="whitespace-nowrap text-xs">{day(a.date)}</span>,
+    },
     {
       id: "service",
       header: t("anomaliesPage.service"),
@@ -489,10 +690,40 @@ function AnomaliesPage({ call, summary, reload }: { call: Call; summary: Summary
     },
     { id: "amount", header: t("anomaliesPage.cost"), align: "right", cell: (a) => money(a.amount, a.currency) },
     { id: "usual", header: t("anomaliesPage.usual"), align: "right", cell: (a) => money(a.usual, a.currency) },
-    { id: "extra", header: t("anomaliesPage.more"), align: "right", sortValue: (a) => a.extra, cell: (a) => <span className="text-danger">+{money(a.extra, a.currency)}</span> },
+    {
+      id: "extra",
+      header: t("anomaliesPage.more"),
+      align: "right",
+      sortValue: (a) => a.extra,
+      cell: (a) => <span className="text-danger">+{money(a.extra, a.currency)}</span>,
+    },
     { id: "status", header: t("anomaliesPage.status"), cell: (a) => <StatusBadge tone={ANOMALY_TONE[a.status]}>{ANOMALY_LABEL[a.status]}</StatusBadge> },
-    { id: "reason", header: t("anomaliesPage.reason"), width: "22%", cell: (a) => <span className="cost-clamp text-xs text-fg-muted" title={a.reason ?? undefined}>{a.reason ?? ""}{a.decidedBy ? ` (${a.decidedBy})` : ""}</span> },
-    ...(can("editor") ? [{ id: "decide", header: "", align: "right" as const, width: "90px", cell: (a: Anomaly) => <Button size="sm" onClick={() => setDeciding(a)}>{t("anomaliesPage.decide")}</Button> }] : []),
+    {
+      id: "reason",
+      header: t("anomaliesPage.reason"),
+      width: "22%",
+      cell: (a) => (
+        <span className="cost-clamp text-xs text-fg-muted" title={a.reason ?? undefined}>
+          {a.reason ?? ""}
+          {a.decidedBy ? ` (${a.decidedBy})` : ""}
+        </span>
+      ),
+    },
+    ...(can("editor")
+      ? [
+          {
+            id: "decide",
+            header: "",
+            align: "right" as const,
+            width: "90px",
+            cell: (a: Anomaly) => (
+              <Button size="sm" onClick={() => setDeciding(a)}>
+                {t("anomaliesPage.decide")}
+              </Button>
+            ),
+          },
+        ]
+      : []),
   ];
   return (
     <>
@@ -508,7 +739,20 @@ function AnomaliesPage({ call, summary, reload }: { call: Call; summary: Summary
         ]}
       />
       <Panel flush>
-        <DataTable label={t("anomaliesPage.anomalies")} columns={columns} rows={rows ?? []} loading={!rows} getRowId={(a) => a.id} minWidth={900} pageSize={50} empty={<EmptyState title={tab === "new" ? t("anomaliesPage.nothingUnusual") : t("anomaliesPage.none")}>{tab === "new" ? t("anomaliesPage.noDayHasCostFar") : t("anomaliesPage.nothingHasBeenDecidedThis")}</EmptyState>} />
+        <DataTable
+          label={t("anomaliesPage.anomalies")}
+          columns={columns}
+          rows={rows ?? []}
+          loading={!rows}
+          getRowId={(a) => a.id}
+          minWidth={900}
+          pageSize={50}
+          empty={
+            <EmptyState title={tab === "new" ? t("anomaliesPage.nothingUnusual") : t("anomaliesPage.none")}>
+              {tab === "new" ? t("anomaliesPage.noDayHasCostFar") : t("anomaliesPage.nothingHasBeenDecidedThis")}
+            </EmptyState>
+          }
+        />
       </Panel>
       {deciding && (
         <DecideDialog
@@ -554,7 +798,12 @@ function RulesPage({ call, reload }: { call: Call; reload: () => void }) {
   const change = (i: number, patch: Partial<DraftRule>) => setRules((rs) => rs?.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const save = async () => {
     try {
-      await call("/api/v1/rules", { method: "PUT", body: JSON.stringify({ rules: (rules ?? []).map((r) => ({ kind: r.kind, match: r.match, team: r.team, ...(r.kind === "tag" && { tagKey: r.tagKey }) })) }) });
+      await call("/api/v1/rules", {
+        method: "PUT",
+        body: JSON.stringify({
+          rules: (rules ?? []).map((r) => ({ kind: r.kind, match: r.match, team: r.team, ...(r.kind === "tag" && { tagKey: r.tagKey }) })),
+        }),
+      });
       setError(undefined);
       load();
       reload();
@@ -583,8 +832,15 @@ function RulesPage({ call, reload }: { call: Call; reload: () => void }) {
                     { value: "tag", label: t("rulesPage.tagIs") },
                   ]}
                 />
-                {r.kind === "tag" && <TextField label={t("rulesPage.tagName")} value={r.tagKey} disabled={!admin} onChange={(e) => change(i, { tagKey: e.target.value })} />}
-                <TextField label={r.kind === "account" ? t("rulesPage.accountId") : r.kind === "service" ? t("rulesPage.service") : t("rulesPage.tagValue")} value={r.match} disabled={!admin} onChange={(e) => change(i, { match: e.target.value })} />
+                {r.kind === "tag" && (
+                  <TextField label={t("rulesPage.tagName")} value={r.tagKey} disabled={!admin} onChange={(e) => change(i, { tagKey: e.target.value })} />
+                )}
+                <TextField
+                  label={r.kind === "account" ? t("rulesPage.accountId") : r.kind === "service" ? t("rulesPage.service") : t("rulesPage.tagValue")}
+                  value={r.match}
+                  disabled={!admin}
+                  onChange={(e) => change(i, { match: e.target.value })}
+                />
                 <TextField label={t("rulesPage.team")} value={r.team} disabled={!admin} onChange={(e) => change(i, { team: e.target.value })} />
                 {admin && <Button icon={<Trash2 />} aria-label={t("rulesPage.removeRule")} onClick={() => setRules((rs) => rs?.filter((_, j) => j !== i))} />}
               </div>
@@ -622,15 +878,28 @@ function CostSettingsPage({ call, reload }: { call: Call; reload: () => void }) 
   const [error, setError] = useState<string>();
   const [rateError, setRateError] = useState<string>();
 
-  const loadRates = useCallback(() => void call<{ rates: Rate[] }>("/api/v1/rates").then((r) => setRates(r.rates), () => setRates([])), [call]);
+  const loadRates = useCallback(
+    () =>
+      void call<{ rates: Rate[] }>("/api/v1/rates").then(
+        (r) => setRates(r.rates),
+        () => setRates([]),
+      ),
+    [call],
+  );
   useEffect(() => {
-    void call<Settings>("/api/v1/settings").then((s) => (setSettings(s), setCurrency(s.currency), setMinimum(String(s.anomalyMinimum))), () => {});
+    void call<Settings>("/api/v1/settings").then(
+      (s) => (setSettings(s), setCurrency(s.currency), setMinimum(String(s.anomalyMinimum))),
+      () => {},
+    );
     loadRates();
   }, [call, loadRates]);
 
   const put = async () => {
     try {
-      const s = await call<Settings>("/api/v1/settings", { method: "PUT", body: JSON.stringify({ currency: currency.trim().toUpperCase(), anomalyMinimum: Number(minimum) }) });
+      const s = await call<Settings>("/api/v1/settings", {
+        method: "PUT",
+        body: JSON.stringify({ currency: currency.trim().toUpperCase(), anomalyMinimum: Number(minimum) }),
+      });
       setSettings(s);
       setError(undefined);
       loadRates();
@@ -654,7 +923,12 @@ function CostSettingsPage({ call, reload }: { call: Call; reload: () => void }) 
   };
   const columns: Column<Rate>[] = [
     { id: "currency", header: t("costSettingsPage.currency"), cell: (r) => <Badge>{r.currency}</Badge> },
-    { id: "rate", header: settings ? t("costSettingsPage.oneUnitIn", { currency: settings.currency }) : t("costSettingsPage.rate"), align: "right", cell: (r) => r.rate },
+    {
+      id: "rate",
+      header: settings ? t("costSettingsPage.oneUnitIn", { currency: settings.currency }) : t("costSettingsPage.rate"),
+      align: "right",
+      cell: (r) => r.rate,
+    },
     ...(admin
       ? [
           {
@@ -662,7 +936,14 @@ function CostSettingsPage({ call, reload }: { call: Call; reload: () => void }) 
             header: "",
             align: "right" as const,
             width: "56px",
-            cell: (r: Rate) => <Button size="sm" icon={<Trash2 />} aria-label={t("costSettingsPage.deleteTheRateOf", { currency: r.currency })} onClick={() => void call(`/api/v1/rates/${r.currency}`, { method: "DELETE" }).then(() => (loadRates(), reload()))} />,
+            cell: (r: Rate) => (
+              <Button
+                size="sm"
+                icon={<Trash2 />}
+                aria-label={t("costSettingsPage.deleteTheRateOf", { currency: r.currency })}
+                onClick={() => void call(`/api/v1/rates/${r.currency}`, { method: "DELETE" }).then(() => (loadRates(), reload()))}
+              />
+            ),
           },
         ]
       : []),
@@ -673,12 +954,29 @@ function CostSettingsPage({ call, reload }: { call: Call; reload: () => void }) 
       {settings && (
         <Panel title={t("costSettingsPage.reporting")}>
           <div className="grid gap-2 sm:grid-cols-2">
-            <TextField label={t("costSettingsPage.reportingCurrency")} value={currency} onChange={(e) => setCurrency(e.target.value)} disabled={!admin} hint={t("costSettingsPage.aThreeLetterCodeSuch")} />
-            <TextField label={t("costSettingsPage.anAnomalyIsAtLeast", { currency: settings.currency })} inputMode="decimal" value={minimum} onChange={(e) => setMinimum(e.target.value)} disabled={!admin} error={error} />
+            <TextField
+              label={t("costSettingsPage.reportingCurrency")}
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              disabled={!admin}
+              hint={t("costSettingsPage.aThreeLetterCodeSuch")}
+            />
+            <TextField
+              label={t("costSettingsPage.anAnomalyIsAtLeast", { currency: settings.currency })}
+              inputMode="decimal"
+              value={minimum}
+              onChange={(e) => setMinimum(e.target.value)}
+              disabled={!admin}
+              error={error}
+            />
           </div>
           {admin && (
             <div className="mt-3">
-              <Button variant="primary" onClick={() => void put()} disabled={currency.trim().toUpperCase() === settings.currency && Number(minimum) === settings.anomalyMinimum}>
+              <Button
+                variant="primary"
+                onClick={() => void put()}
+                disabled={currency.trim().toUpperCase() === settings.currency && Number(minimum) === settings.anomalyMinimum}
+              >
                 {t("costSettingsPage.save")}
               </Button>
             </div>
@@ -686,14 +984,29 @@ function CostSettingsPage({ call, reload }: { call: Call; reload: () => void }) 
         </Panel>
       )}
       <Panel title={t("costSettingsPage.rates")} description={t("costSettingsPage.spendInACurrencyWithout")} flush>
-        <DataTable label={t("costSettingsPage.rates")} columns={columns} rows={rates ?? []} loading={!rates} getRowId={(r) => r.currency} minWidth={360} empty={<EmptyState title={t("costSettingsPage.noRates")}>{t("costSettingsPage.allSpendIsInThe")}</EmptyState>} />
+        <DataTable
+          label={t("costSettingsPage.rates")}
+          columns={columns}
+          rows={rates ?? []}
+          loading={!rates}
+          getRowId={(r) => r.currency}
+          minWidth={360}
+          empty={<EmptyState title={t("costSettingsPage.noRates")}>{t("costSettingsPage.allSpendIsInThe")}</EmptyState>}
+        />
       </Panel>
       {admin && (
         <Panel title={t("costSettingsPage.setARate")} description={t("costSettingsPage.aRateForACurrency")}>
           <form className="flex flex-col gap-2" onSubmit={putRate}>
             <div className="grid gap-2 sm:grid-cols-2">
               <TextField label={t("costSettingsPage.currency")} value={rateCurrency} onChange={(e) => setRateCurrency(e.target.value)} placeholder="EUR" />
-              <TextField label={settings ? t("costSettingsPage.oneUnitIn", { currency: settings.currency }) : t("costSettingsPage.rate")} inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="1.08" error={rateError} />
+              <TextField
+                label={settings ? t("costSettingsPage.oneUnitIn", { currency: settings.currency }) : t("costSettingsPage.rate")}
+                inputMode="decimal"
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                placeholder="1.08"
+                error={rateError}
+              />
             </div>
             <div>
               <Button type="submit" variant="primary" disabled={!/^[A-Za-z]{3}$/.test(rateCurrency.trim()) || !(Number(rate) > 0)}>
@@ -745,7 +1058,11 @@ function WelcomePage() {
   const t = useT();
   return (
     <>
-      <PageHeader title={t("welcomePage.getStarted")} description={t("welcomePage.sendTheFirstDayOf")} actions={<StatusBadge tone="info">{t("welcomePage.waitingForSpend")}</StatusBadge>} />
+      <PageHeader
+        title={t("welcomePage.getStarted")}
+        description={t("welcomePage.sendTheFirstDayOf")}
+        actions={<StatusBadge tone="info">{t("welcomePage.waitingForSpend")}</StatusBadge>}
+      />
       <SetupPage />
     </>
   );
@@ -760,8 +1077,14 @@ function SettingsPage({ page }: { page: "account" | "members" | "signin" | "toke
   if (page !== "account" && !can("admin")) return <EmptyState title={t("settingsPage.adminsOnly")}>{t("settingsPage.askAnAdminOfThis")}</EmptyState>;
   const titles = {
     account: ["Account", "Your profile, password, two-step verification and where you are signed in."],
-    members: ["Members", "Who can sign in to this cost, and with which role. Viewers see everything; editors also send spend and decide on anomalies; admins also change budgets, rules, rates and settings, and manage members and tokens."],
-    signin: ["Sign-in", "Identity providers people can sign in with, such as OpenAsy Identity, Keycloak or Microsoft Entra ID, and which of their groups give which role."],
+    members: [
+      "Members",
+      "Who can sign in to this cost, and with which role. Viewers see everything; editors also send spend and decide on anomalies; admins also change budgets, rules, rates and settings, and manage members and tokens.",
+    ],
+    signin: [
+      "Sign-in",
+      "Identity providers people can sign in with, such as OpenAsy Identity, Keycloak or Microsoft Entra ID, and which of their groups give which role.",
+    ],
     tokens: ["API tokens", "For scripts and CI. Each token has one role and an expiry; the secret is shown once."],
   } as const;
   return (

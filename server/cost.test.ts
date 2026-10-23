@@ -25,7 +25,10 @@ describe("money", () => {
   it("keeps credits as negative spend", () => {
     const { cost, send } = make();
     send(lines({ date: "2026-10-01", amount: 100 }, { date: "2026-10-01", amount: -30, service: "Credits" }));
-    expect(cost.spend("service", { from: "2026-10-01", to: "2026-10-01" }).groups.map((g) => [g.key, g.amount])).toEqual([["Amazon EC2", 100], ["Credits", -30]]);
+    expect(cost.spend("service", { from: "2026-10-01", to: "2026-10-01" }).groups.map((g) => [g.key, g.amount])).toEqual([
+      ["Amazon EC2", 100],
+      ["Credits", -30],
+    ]);
     expect(cost.spend("provider", { from: "2026-10-01", to: "2026-10-01" }).total).toBe(70);
   });
 });

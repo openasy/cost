@@ -32,7 +32,12 @@ describe("spend in", () => {
   });
 
   it("adds lines with the same key in one call, as a bill with many lines for one resource does", async () => {
-    await app.send(lines({ date: "2026-09-01", account: "444", service: "Amazon SQS", amount: 1.1, resource: "q1" }, { date: "2026-09-01", account: "444", service: "Amazon SQS", amount: 2.2, resource: "q1" }));
+    await app.send(
+      lines(
+        { date: "2026-09-01", account: "444", service: "Amazon SQS", amount: 1.1, resource: "q1" },
+        { date: "2026-09-01", account: "444", service: "Amazon SQS", amount: 2.2, resource: "q1" },
+      ),
+    );
     const r = await app.get("/api/v1/spend?groupBy=service&account=444&from=2026-09-01&to=2026-09-01");
     expect(r.groups).toEqual([{ key: "Amazon SQS", amount: 3.3, share: 1 }]);
     await app.admin("/api/v1/spend?groupBy=day"); // reads do not change anything
@@ -47,15 +52,24 @@ describe("spend in", () => {
 
   it("takes NDJSON, CSV and gzip", async () => {
     const row = { provider: "gcp", account: "p1", service: "BigQuery", currency: "USD", amount: 7, date: "2026-07-01" };
-    expect((await app.send(`${JSON.stringify(row)}\n${JSON.stringify({ ...row, date: "2026-07-02" })}\n`, "", { "content-type": "application/x-ndjson" })).status).toBe(200);
-    expect((await app.send("date,provider,account,service,amount,currency\n2026-07-03,gcp,p1,BigQuery,7,USD\n", "", { "content-type": "text/csv" })).status).toBe(200);
+    expect(
+      (await app.send(`${JSON.stringify(row)}\n${JSON.stringify({ ...row, date: "2026-07-02" })}\n`, "", { "content-type": "application/x-ndjson" })).status,
+    ).toBe(200);
+    expect(
+      (await app.send("date,provider,account,service,amount,currency\n2026-07-03,gcp,p1,BigQuery,7,USD\n", "", { "content-type": "text/csv" })).status,
+    ).toBe(200);
     expect((await app.send(gzipSync(JSON.stringify([{ ...row, date: "2026-07-04" }])), "", { "content-encoding": "gzip" })).status).toBe(200);
     expect((await app.get("/api/v1/spend?groupBy=provider&provider=gcp&from=2026-07-01&to=2026-07-31")).total).toBe(28);
   });
 
   it("says which line is wrong and keeps nothing of the call", async () => {
     const before = (await app.get("/api/v1/spend?groupBy=provider&from=2026-06-01&to=2026-06-30")).total;
-    const res = await app.send(JSON.stringify([{ provider: "aws", account: "1", service: "S3", currency: "USD", amount: 1, date: "2026-06-01" }, { provider: "aws", account: "1", service: "S3", currency: "USD", amount: "x", date: "2026-06-02" }]));
+    const res = await app.send(
+      JSON.stringify([
+        { provider: "aws", account: "1", service: "S3", currency: "USD", amount: 1, date: "2026-06-01" },
+        { provider: "aws", account: "1", service: "S3", currency: "USD", amount: "x", date: "2026-06-02" },
+      ]),
+    );
     expect(res.status).toBe(422);
     expect(await res.json()).toMatchObject({ code: "invalid-records", detail: "Line 2: amount must be a number." });
     expect((await app.get("/api/v1/spend?groupBy=provider&from=2026-06-01&to=2026-06-30")).total).toBe(before);
@@ -67,7 +81,10 @@ describe("spend in", () => {
 describe("who spent it", () => {
   it("shows what nobody owns yet", async () => {
     const r = await app.get("/api/v1/spend?groupBy=team&from=2026-10-01&to=2026-10-14");
-    expect(r.groups.map((g: any) => [g.key, g.amount])).toEqual([["platform", 1400], ["untagged", 210]]);
+    expect(r.groups.map((g: any) => [g.key, g.amount])).toEqual([
+      ["platform", 1400],
+      ["untagged", 210],
+    ]);
     expect(r.untagged).toEqual({ amount: 210, share: 0.1304 });
     expect(r.total).toBe(1610);
   });
@@ -81,7 +98,11 @@ describe("who spent it", () => {
     const res = await put("/api/v1/rules", { rules });
     expect(res.status).toBe(200);
     const r = await app.get("/api/v1/spend?groupBy=team&from=2026-10-01&to=2026-10-14");
-    expect(r.groups.map((g: any) => [g.key, g.amount])).toEqual([["platform", 1400], ["data", 140], ["databases", 70]]);
+    expect(r.groups.map((g: any) => [g.key, g.amount])).toEqual([
+      ["platform", 1400],
+      ["data", 140],
+      ["databases", 70],
+    ]);
     expect(r.untagged.amount).toBe(0);
     // New lines are placed by the same rules, as they arrive.
     await app.send(lines({ date: "2026-10-15", account: "222", service: "Amazon S3", amount: 10 }));
@@ -100,14 +121,23 @@ describe("who spent it", () => {
       { rules: [{ kind: "account", match: "1", team: "t", tagKey: "env" }] },
       { rules: "nope" },
       { rules: [], extra: 1 },
-    ]) expect((await put("/api/v1/rules", bad)).status, JSON.stringify(bad)).toBe(422);
-    await put("/api/v1/rules", { rules: [{ kind: "account", match: "222", team: "data" }, { kind: "service", match: "Amazon R*", team: "databases" }] });
+    ])
+      expect((await put("/api/v1/rules", bad)).status, JSON.stringify(bad)).toBe(422);
+    await put("/api/v1/rules", {
+      rules: [
+        { kind: "account", match: "222", team: "data" },
+        { kind: "service", match: "Amazon R*", team: "databases" },
+      ],
+    });
   });
 
   it("groups by service, tag and period, and filters", async () => {
     const q = "from=2026-10-01&to=2026-10-14";
     expect((await app.get(`/api/v1/spend?groupBy=service&${q}`)).groups.map((g: any) => g.key)).toEqual(["Amazon EC2", "Amazon S3", "Amazon RDS"]);
-    expect((await app.get(`/api/v1/spend?groupBy=tag:env&${q}`)).groups.map((g: any) => [g.key, g.amount])).toEqual([["prod", 1540], ["untagged", 70]]);
+    expect((await app.get(`/api/v1/spend?groupBy=tag:env&${q}`)).groups.map((g: any) => [g.key, g.amount])).toEqual([
+      ["prod", 1540],
+      ["untagged", 70],
+    ]);
     expect((await app.get(`/api/v1/spend?groupBy=day&${q}`)).groups).toHaveLength(14);
     const weeks = (await app.get(`/api/v1/spend?groupBy=week&${q}`)).groups.map((g: any) => g.key);
     expect(weeks).toEqual(["2026-09-28", "2026-10-05", "2026-10-12"]);
@@ -116,11 +146,17 @@ describe("who spent it", () => {
     expect((await app.get(`/api/v1/spend?groupBy=service&team=untagged&${q}`)).total).toBe(0);
     expect((await app.get(`/api/v1/spend?groupBy=service&tag.team=platform&${q}`)).total).toBe(1400);
     expect((await app.get(`/api/v1/spend?groupBy=account&provider=aws&${q}`)).groups).toHaveLength(3);
-    for (const bad of ["groupBy=colour", "from=soon", "provider=oracle", "from=2026-10-10&to=2026-10-01", "groupBy=tag:"]) expect((await app.admin(`/api/v1/spend?${bad}`)).status, bad).toBe(422);
+    for (const bad of ["groupBy=colour", "from=soon", "provider=oracle", "from=2026-10-10&to=2026-10-01", "groupBy=tag:"])
+      expect((await app.admin(`/api/v1/spend?${bad}`)).status, bad).toBe(422);
   });
 
   it("shows what moved against the same length of time before", async () => {
-    await app.send(lines(...days("2025-12-01", 7, 100, { account: "666", service: "Amazon Athena" }), ...days("2025-12-08", 7, 150, { account: "666", service: "Amazon Athena" })));
+    await app.send(
+      lines(
+        ...days("2025-12-01", 7, 100, { account: "666", service: "Amazon Athena" }),
+        ...days("2025-12-08", 7, 150, { account: "666", service: "Amazon Athena" }),
+      ),
+    );
     const r = await app.get("/api/v1/spend/movers?groupBy=service&from=2025-12-08&to=2025-12-14");
     expect(r.previousPeriod).toEqual({ from: "2025-12-01", to: "2025-12-07" });
     expect(r.movers[0]).toEqual({ key: "Amazon Athena", current: 1050, previous: 700, change: 350, changePercent: 50 });
@@ -160,14 +196,34 @@ describe("budgets and forecast", () => {
     const created = await post("/api/v1/budgets", { name: "Platform", scope: "team", value: "platform", amount: 3000 });
     expect(created.status).toBe(201);
     const b = (await app.get("/api/v1/budgets?asOf=2026-10-14")).budgets[0];
-    expect(b).toMatchObject({ name: "Platform", amount: 3000, spent: 1400, percent: 46.7, forecast: 3100, forecastPercent: 103.3, burnRate: 1.03, reached: null, state: "ok", month: "2026-10" });
+    expect(b).toMatchObject({
+      name: "Platform",
+      amount: 3000,
+      spent: 1400,
+      percent: 46.7,
+      forecast: 3100,
+      forecastPercent: 103.3,
+      burnRate: 1.03,
+      reached: null,
+      state: "ok",
+      month: "2026-10",
+    });
     await post("/api/v1/budgets", { name: "Prod tag", scope: "tag", tagKey: "env", value: "prod", amount: 1500 });
     const prod = (await app.get("/api/v1/budgets?asOf=2026-10-14")).budgets.find((x: any) => x.name === "Prod tag");
     expect(prod).toMatchObject({ spent: 1540, percent: 102.7, reached: 100, state: "over" });
     await post("/api/v1/budgets", { name: "Data", scope: "team", value: "data", amount: 200 });
-    expect((await app.get("/api/v1/budgets?asOf=2026-10-14")).budgets.find((x: any) => x.name === "Data")).toMatchObject({ spent: 140, percent: 70, reached: 50, state: "warning" });
+    expect((await app.get("/api/v1/budgets?asOf=2026-10-14")).budgets.find((x: any) => x.name === "Data")).toMatchObject({
+      spent: 140,
+      percent: 70,
+      reached: 50,
+      state: "warning",
+    });
     await post("/api/v1/budgets", { name: "Databases", scope: "team", value: "databases", amount: 80 });
-    expect((await app.get("/api/v1/budgets?asOf=2026-10-14")).budgets.find((x: any) => x.name === "Databases")).toMatchObject({ percent: 87.5, reached: 80, state: "alert" });
+    expect((await app.get("/api/v1/budgets?asOf=2026-10-14")).budgets.find((x: any) => x.name === "Databases")).toMatchObject({
+      percent: 87.5,
+      reached: 80,
+      state: "alert",
+    });
   });
 
   it("refuses budgets it cannot use", async () => {
@@ -178,7 +234,8 @@ describe("budgets and forecast", () => {
       { name: "A", scope: "tag", value: "x", amount: 1 },
       { name: "A", scope: "team", value: "x", amount: 1, tagKey: "env" },
       { name: "A", scope: "team", value: "x", amount: 1, colour: "red" },
-    ]) expect((await post("/api/v1/budgets", bad)).status, JSON.stringify(bad)).toBe(422);
+    ])
+      expect((await post("/api/v1/budgets", bad)).status, JSON.stringify(bad)).toBe(422);
     expect((await post("/api/v1/budgets", { name: "Platform", scope: "team", value: "platform", amount: 5 })).status).toBe(409);
     expect((await app.admin("/api/v1/budgets?asOf=tomorrow")).status).toBe(422);
   });
@@ -204,7 +261,9 @@ describe("anomalies", () => {
   });
 
   it("does not guess with too little history", async () => {
-    await app.send(lines(...days("2026-10-01", 3, 10, { account: "888", service: "New" }), { date: "2026-10-04", account: "888", service: "New", amount: 5000 }));
+    await app.send(
+      lines(...days("2026-10-01", 3, 10, { account: "888", service: "New" }), { date: "2026-10-04", account: "888", service: "New", amount: 5000 }),
+    );
     expect((await app.get("/api/v1/anomalies")).anomalies.filter((x: any) => x.account === "888")).toEqual([]);
   });
 
@@ -224,7 +283,11 @@ describe("anomalies", () => {
     const a = (await app.get("/api/v1/anomalies")).anomalies.find((x: any) => x.service === "Amazon EC2");
     expect((await put(`/api/v1/anomalies/${a.id}`, { status: "expected" })).status).toBe(422);
     expect((await put(`/api/v1/anomalies/${a.id}`, { status: "gone" })).status).toBe(422);
-    expect(await (await put(`/api/v1/anomalies/${a.id}`, { status: "expected", reason: "Load test for the launch" })).json()).toMatchObject({ status: "expected", reason: "Load test for the launch", decidedBy: "admin token" });
+    expect(await (await put(`/api/v1/anomalies/${a.id}`, { status: "expected", reason: "Load test for the launch" })).json()).toMatchObject({
+      status: "expected",
+      reason: "Load test for the launch",
+      decidedBy: "admin token",
+    });
     expect((await app.get("/api/v1/anomalies?status=expected")).anomalies).toHaveLength(1);
     expect((await app.get("/api/v1/anomalies?status=new")).anomalies.map((x: any) => x.service)).toEqual(["Tiny"]);
     expect((await put(`/api/v1/anomalies/${a.id}`, { status: "new" })).status).toBe(200);

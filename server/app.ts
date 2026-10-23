@@ -71,7 +71,8 @@ function send(res: ServerResponse, status: number, body: string | Buffer, type =
   res.end(body);
 }
 
-const json = (res: ServerResponse, status: number, data: unknown, headers?: Record<string, string>) => send(res, status, JSON.stringify(data), "application/json", headers);
+const json = (res: ServerResponse, status: number, data: unknown, headers?: Record<string, string>) =>
+  send(res, status, JSON.stringify(data), "application/json", headers);
 
 const TITLES: Record<ProblemCode, string> = {
   "invalid-token": "Invalid token",
@@ -125,7 +126,8 @@ async function readBody(req: IncomingMessage, limit: number): Promise<Buffer> {
 
 async function readJson(req: IncomingMessage, limit = 64 * 1024): Promise<Record<string, unknown>> {
   const raw = await readBody(req, limit).catch((err: unknown) => {
-    if (err instanceof CostError && err.code === "payload-too-large") throw new CostError(400, "invalid-json", `The body must be JSON, at most ${Math.round(limit / 1024)} KiB.`);
+    if (err instanceof CostError && err.code === "payload-too-large")
+      throw new CostError(400, "invalid-json", `The body must be JSON, at most ${Math.round(limit / 1024)} KiB.`);
     throw err;
   });
   try {
@@ -172,7 +174,8 @@ const day = (url: URL, name: string) => {
 /** What to look at: a period and any of provider, account, service, region, team and tag.<name>. */
 function spendFilter(url: URL): SpendFilter {
   const provider = url.searchParams.get("provider") ?? undefined;
-  if (provider !== undefined && !(PROVIDERS as readonly string[]).includes(provider)) throw new CostError(422, "invalid-body", `provider is one of ${PROVIDERS.join(", ")}.`);
+  if (provider !== undefined && !(PROVIDERS as readonly string[]).includes(provider))
+    throw new CostError(422, "invalid-body", `provider is one of ${PROVIDERS.join(", ")}.`);
   const tags: Record<string, string> = {};
   for (const [k, v] of url.searchParams) if (k.startsWith("tag.") && k.length > 4) tags[k.slice(4)] = v;
   const text = (name: string) => {
@@ -180,7 +183,16 @@ function spendFilter(url: URL): SpendFilter {
     if (v !== null && v.length > 256) throw new CostError(422, "invalid-body", `${name} is at most 256 characters.`);
     return v ?? undefined;
   };
-  return { from: day(url, "from"), to: day(url, "to"), provider, account: text("account"), service: text("service"), region: text("region"), team: text("team"), tags };
+  return {
+    from: day(url, "from"),
+    to: day(url, "to"),
+    provider,
+    account: text("account"),
+    service: text("service"),
+    region: text("region"),
+    team: text("team"),
+    tags,
+  };
 }
 
 const groupBy = (url: URL, fallback: string) => {
@@ -197,7 +209,8 @@ export function createApp({ db, cost, version, auth, adminToken, ingestToken, we
   };
   const cursor = (url: URL) => url.searchParams.get("cursor") ?? undefined;
   const limit = (url: URL) => parseLimit(url.searchParams.get("limit"));
-  const page = <K extends string, T>(key: K, p: { items: T[]; nextCursor?: string }) => ({ [key]: p.items, ...(p.nextCursor && { nextCursor: p.nextCursor }) }) as Record<K, T[]> & { nextCursor?: string };
+  const page = <K extends string, T>(key: K, p: { items: T[]; nextCursor?: string }) =>
+    ({ [key]: p.items, ...(p.nextCursor && { nextCursor: p.nextCursor }) }) as Record<K, T[]> & { nextCursor?: string };
 
   const routes: Route[] = [
     { method: "GET", path: "/api/v1/version", auth: "none", handle: () => ({ product: "cost", version }) },
@@ -248,7 +261,12 @@ export function createApp({ db, cost, version, auth, adminToken, ingestToken, we
       auth: "viewer",
       handle: ({ url }) => page("anomalies", cost.anomalies(url.searchParams.get("status"), cursor(url), limit(url))),
     },
-    { method: "PUT", path: "/api/v1/anomalies/:id", auth: "editor", handle: async ({ params, body, actor }) => cost.decideAnomaly(params[0]!, await body(), actor()) },
+    {
+      method: "PUT",
+      path: "/api/v1/anomalies/:id",
+      auth: "editor",
+      handle: async ({ params, body, actor }) => cost.decideAnomaly(params[0]!, await body(), actor()),
+    },
   ];
 
   const compiled = routes.map((r) => ({ ...r, re: new RegExp(`^${r.path.replace(/:[A-Za-z]+/g, "([^/]+)")}$`) }));
@@ -260,8 +278,10 @@ export function createApp({ db, cost, version, auth, adminToken, ingestToken, we
     if (tokenMatches(req.headers.authorization, adminToken)) return "admin token";
     if (access === "ingest") {
       // An API token or a session with the editor role can send spend too, for a pipeline set up from Settings.
-      if (!ingestToken && !req.headers.authorization?.startsWith("Bearer oa_")) throw new CostError(503, "not-configured", "Set COST_INGEST_TOKEN on cost, or send an API token with the editor role.");
-      if (!req.headers.authorization?.startsWith("Bearer oa_")) throw new CostError(401, "invalid-token", "Send COST_INGEST_TOKEN or an API token as a bearer token.");
+      if (!ingestToken && !req.headers.authorization?.startsWith("Bearer oa_"))
+        throw new CostError(503, "not-configured", "Set COST_INGEST_TOKEN on cost, or send an API token with the editor role.");
+      if (!req.headers.authorization?.startsWith("Bearer oa_"))
+        throw new CostError(401, "invalid-token", "Send COST_INGEST_TOKEN or an API token as a bearer token.");
     }
     const p = auth.authorize(req, access === "ingest" ? "editor" : access);
     return p.kind === "session" ? p.user.name : `API token ${p.name}`;

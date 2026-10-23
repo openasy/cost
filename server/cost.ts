@@ -3,15 +3,7 @@ import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { isDay, toMicros, type SpendRecord } from "./records.ts";
 
 export type ProblemCode =
-  | "invalid-token"
-  | "invalid-json"
-  | "invalid-body"
-  | "invalid-records"
-  | "not-found"
-  | "conflict"
-  | "not-configured"
-  | "payload-too-large"
-  | "internal-error";
+  "invalid-token" | "invalid-json" | "invalid-body" | "invalid-records" | "not-found" | "conflict" | "not-configured" | "payload-too-large" | "internal-error";
 
 export class CostError extends Error {
   readonly status: number;
@@ -76,7 +68,14 @@ export interface Rule {
   team: string;
 }
 
-const globToRe = (glob: string) => new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`, "i");
+const globToRe = (glob: string) =>
+  new RegExp(
+    `^${glob
+      .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*")
+      .replace(/\?/g, ".")}$`,
+    "i",
+  );
 const TEAM = /^[A-Za-z0-9][A-Za-z0-9 ._/-]{0,63}$/;
 export const UNTAGGED = "untagged";
 
@@ -115,16 +114,27 @@ export interface CostOptions {
 
 export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOptions = {}) {
   const setting = (key: string) => (db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined)?.value;
-  const put = (key: string, value: string) => db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(key, value);
+  const put = (key: string, value: string) =>
+    db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(key, value);
 
   const currency = () => setting("currency") ?? "USD";
   const anomalyMinimum = () => Number(setting("anomaly_minimum") ?? 50);
-  const ratesMap = () => new Map((db.prepare("SELECT currency, rate FROM rates").all() as Array<{ currency: string; rate: number }>).map((r) => [r.currency, r.rate]));
-  const rules = (): Rule[] => (db.prepare("SELECT kind, match, tag_key, team FROM rules ORDER BY position").all() as Array<{ kind: Rule["kind"]; match: string; tag_key: string | null; team: string }>).map((r) => ({ kind: r.kind, match: r.match, tagKey: r.tag_key, team: r.team }));
+  const ratesMap = () =>
+    new Map((db.prepare("SELECT currency, rate FROM rates").all() as Array<{ currency: string; rate: number }>).map((r) => [r.currency, r.rate]));
+  const rules = (): Rule[] =>
+    (
+      db.prepare("SELECT kind, match, tag_key, team FROM rules ORDER BY position").all() as Array<{
+        kind: Rule["kind"];
+        match: string;
+        tag_key: string | null;
+        team: string;
+      }>
+    ).map((r) => ({ kind: r.kind, match: r.match, tagKey: r.tag_key, team: r.team }));
   const latestDate = () => (db.prepare("SELECT MAX(date) AS d FROM records").get() as { d: string | null }).d;
 
   /** The money of a line in the reporting currency, or null when no rate says what its currency is worth. */
-  const convert = (micros: number, from: string, rates: Map<string, number>, reporting: string) => (from === reporting ? micros : rates.has(from) ? Math.round(micros * rates.get(from)!) : null);
+  const convert = (micros: number, from: string, rates: Map<string, number>, reporting: string) =>
+    from === reporting ? micros : rates.has(from) ? Math.round(micros * rates.get(from)!) : null;
 
   function resolveAll() {
     const rs = rules();
@@ -140,7 +150,9 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
     const rates = ratesMap();
     const reporting = currency();
     const out = new Map<string, number>();
-    const rows = db.prepare("SELECT date, currency, SUM(micros) AS m FROM records WHERE account = ? AND service = ? AND date BETWEEN ? AND ? GROUP BY date, currency").all(account, service, from, to) as Array<{ date: string; currency: string; m: number }>;
+    const rows = db
+      .prepare("SELECT date, currency, SUM(micros) AS m FROM records WHERE account = ? AND service = ? AND date BETWEEN ? AND ? GROUP BY date, currency")
+      .all(account, service, from, to) as Array<{ date: string; currency: string; m: number }>;
     for (const r of rows) {
       const c = convert(r.m, r.currency, rates, reporting);
       if (c !== null) out.set(r.date, (out.get(r.date) ?? 0) + c);
@@ -189,7 +201,7 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
     if (f.from) (w.push("date >= ?"), a.push(f.from));
     if (f.to) (w.push("date <= ?"), a.push(f.to));
     for (const col of ["provider", "account", "service", "region"] as const) if (f[col]) (w.push(`${col} = ?`), a.push(f[col]!));
-    if (f.team) (f.team === UNTAGGED ? w.push("team IS NULL") : (w.push("team = ?"), a.push(f.team)));
+    if (f.team) f.team === UNTAGGED ? w.push("team IS NULL") : (w.push("team = ?"), a.push(f.team));
     for (const [k, v] of Object.entries(f.tags ?? {})) (w.push("json_extract(tags, ?) = ?"), a.push(`$."${k.toLowerCase()}"`, v));
     return { sql: w.length ? `WHERE ${w.join(" AND ")}` : "", args: a };
   }
@@ -197,9 +209,18 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
   /** Spend in millionths of the reporting currency by the key `groupBy` gives each line. Also names the currencies nobody has a rate for. */
   function aggregate(groupBy: string, f: SpendFilter) {
     const { sql, args } = where(f);
-    const dim = groupBy === "team" ? "COALESCE(team, 'untagged')" : groupBy.startsWith("tag:") ? "COALESCE(json_extract(tags, ?), 'untagged')" : ["service", "account", "provider", "region"].includes(groupBy) ? groupBy : "''";
+    const dim =
+      groupBy === "team"
+        ? "COALESCE(team, 'untagged')"
+        : groupBy.startsWith("tag:")
+          ? "COALESCE(json_extract(tags, ?), 'untagged')"
+          : ["service", "account", "provider", "region"].includes(groupBy)
+            ? groupBy
+            : "''";
     const extra: SQLInputValue[] = groupBy.startsWith("tag:") ? [`$."${groupBy.slice(4).toLowerCase()}"`] : [];
-    const rows = db.prepare(`SELECT ${dim} AS k, date, currency, SUM(micros) AS m FROM records ${sql} GROUP BY k, date, currency`).all(...extra, ...args) as Array<{ k: string; date: string; currency: string; m: number }>;
+    const rows = db
+      .prepare(`SELECT ${dim} AS k, date, currency, SUM(micros) AS m FROM records ${sql} GROUP BY k, date, currency`)
+      .all(...extra, ...args) as Array<{ k: string; date: string; currency: string; m: number }>;
     const rates = ratesMap();
     const reporting = currency();
     const missing = new Set<string>();
@@ -230,7 +251,7 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
     const filter = { ...f, ...r };
     const { groups, total, missing } = aggregate(groupBy, filter);
     // What nobody owns yet, across the whole filter (except a team filter, which already says whose).
-    const untagged = f.team ? null : aggregate("team", filter).groups.get(UNTAGGED) ?? 0;
+    const untagged = f.team ? null : (aggregate("team", filter).groups.get(UNTAGGED) ?? 0);
     const period = groupBy === "day" || groupBy === "week" || groupBy === "month";
     const list = [...groups].map(([key, m]) => ({ key, amount: amountOf(m), share: total ? Math.round((m / total) * 10_000) / 10_000 : 0 }));
     list.sort(period ? (a, b) => (a.key < b.key ? -1 : 1) : (a, b) => b.amount - a.amount || (a.key < b.key ? -1 : 1));
@@ -248,7 +269,8 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
 
   /** The same length of time just before `from`, to see what moved. */
   function movers(groupBy: string, f: SpendFilter) {
-    if (!isGroupBy(groupBy) || groupBy === "day" || groupBy === "week" || groupBy === "month") throw bad("groupBy must be team, service, account, provider, region or tag:<name>.");
+    if (!isGroupBy(groupBy) || groupBy === "day" || groupBy === "week" || groupBy === "month")
+      throw bad("groupBy must be team, service, account, provider, region or tag:<name>.");
     const r = range(f);
     if (r.from > r.to) throw bad("from must not be after to.");
     const length = daysBetween(r.from, r.to) + 1;
@@ -262,7 +284,14 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
       return { key, current: amountOf(c), previous: amountOf(p), change: amountOf(c - p), changePercent: p ? Math.round(((c - p) / p) * 1000) / 10 : null };
     });
     items.sort((a, b) => Math.abs(b.change) - Math.abs(a.change) || (a.key < b.key ? -1 : 1));
-    return { currency: currency(), period: r, previousPeriod: before, groupBy, movers: items.slice(0, 10), missingRates: [...new Set([...cur.missing, ...prev.missing])].sort() };
+    return {
+      currency: currency(),
+      period: r,
+      previousPeriod: before,
+      groupBy,
+      movers: items.slice(0, 10),
+      missingRates: [...new Set([...cur.missing, ...prev.missing])].sort(),
+    };
   }
 
   /** Spend so far this month, the run rate of the last 7 days, and where the month ends if that rate holds. */
@@ -304,12 +333,19 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
       }
       return { currency: currency(), anomalyMinimum: anomalyMinimum() };
     },
-    rates: () => ({ currency: currency(), rates: (db.prepare("SELECT currency, rate FROM rates ORDER BY currency").all() as Array<{ currency: string; rate: number }>).map((r) => ({ currency: r.currency, rate: r.rate })) }),
+    rates: () => ({
+      currency: currency(),
+      rates: (db.prepare("SELECT currency, rate FROM rates ORDER BY currency").all() as Array<{ currency: string; rate: number }>).map((r) => ({
+        currency: r.currency,
+        rate: r.rate,
+      })),
+    }),
     setRate(code: string, body: Record<string, unknown>) {
       if (!/^[A-Z]{3}$/.test(code)) throw bad("The currency must be a three-letter code such as EUR.");
       if (code === currency()) throw bad(`${code} is the reporting currency; it is worth exactly itself.`);
       const { rate, ...rest } = body;
-      if (Object.keys(rest).length || typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0 || rate > 1e9) throw bad(`Expected { rate }: what one ${code} is worth in ${currency()}, above 0.`);
+      if (Object.keys(rest).length || typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0 || rate > 1e9)
+        throw bad(`Expected { rate }: what one ${code} is worth in ${currency()}, above 0.`);
       db.prepare("INSERT INTO rates (currency, rate) VALUES (?, ?) ON CONFLICT (currency) DO UPDATE SET rate = excluded.rate").run(code, rate);
       return { currency: code, rate };
     },
@@ -324,10 +360,13 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
         const o = r as Record<string, unknown>;
         if (!o || typeof o !== "object" || Array.isArray(o)) throw bad(`Rule ${i + 1} must be an object.`);
         const { kind, match, tagKey, team, ...rest } = o;
-        if (Object.keys(rest).length || (kind !== "account" && kind !== "service" && kind !== "tag")) throw bad(`Rule ${i + 1}: kind is account, service or tag.`);
+        if (Object.keys(rest).length || (kind !== "account" && kind !== "service" && kind !== "tag"))
+          throw bad(`Rule ${i + 1}: kind is account, service or tag.`);
         if (typeof match !== "string" || !match.trim() || match.length > 128) throw bad(`Rule ${i + 1}: match is required.`);
-        if (typeof team !== "string" || !TEAM.test(team) || team.toLowerCase() === UNTAGGED) throw bad(`Rule ${i + 1}: team is a name of up to 64 letters, digits, spaces and . _ / -, and not "${UNTAGGED}".`);
-        if (kind === "tag" && (typeof tagKey !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,63}$/.test(tagKey))) throw bad(`Rule ${i + 1}: a tag rule needs tagKey.`);
+        if (typeof team !== "string" || !TEAM.test(team) || team.toLowerCase() === UNTAGGED)
+          throw bad(`Rule ${i + 1}: team is a name of up to 64 letters, digits, spaces and . _ / -, and not "${UNTAGGED}".`);
+        if (kind === "tag" && (typeof tagKey !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,63}$/.test(tagKey)))
+          throw bad(`Rule ${i + 1}: a tag rule needs tagKey.`);
         if (kind !== "tag" && tagKey !== undefined && tagKey !== null) throw bad(`Rule ${i + 1}: tagKey belongs to tag rules.`);
         return { kind, match: match.trim(), tagKey: kind === "tag" ? (tagKey as string) : null, team };
       });
@@ -356,7 +395,7 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
       for (const r of records) {
         const key = JSON.stringify([r.date, r.provider, r.account, r.service, r.region, r.resource, r.usageType, r.currency]);
         const have = merged.get(key);
-        if (have) (have.micros += r.micros, Object.assign(have.tags, r.tags));
+        if (have) ((have.micros += r.micros), Object.assign(have.tags, r.tags));
         else merged.set(key, { ...r, tags: { ...r.tags } });
       }
       let replaced = 0;
@@ -371,7 +410,9 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
             if (!seen.has(k)) (seen.add(k), del.run(r.provider, r.account, r.date));
           }
         }
-        const has = db.prepare("SELECT 1 FROM records WHERE date = ? AND provider = ? AND account = ? AND service = ? AND region = ? AND resource = ? AND usage_type = ? AND currency = ?");
+        const has = db.prepare(
+          "SELECT 1 FROM records WHERE date = ? AND provider = ? AND account = ? AND service = ? AND region = ? AND resource = ? AND usage_type = ? AND currency = ?",
+        );
         const upsert = db.prepare(
           `INSERT INTO records (date, provider, account, service, region, resource, usage_type, currency, micros, tags, team) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (date, provider, account, service, region, resource, usage_type, currency) DO UPDATE SET micros = excluded.micros, tags = excluded.tags, team = excluded.team`,
@@ -379,7 +420,19 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
         for (const r of merged.values()) {
           if (has.get(r.date, r.provider, r.account, r.service, r.region, r.resource, r.usageType, r.currency)) replaced++;
           const tags = JSON.stringify(Object.fromEntries(Object.entries(r.tags).sort(([a], [b]) => (a < b ? -1 : 1))));
-          upsert.run(r.date, r.provider, r.account, r.service, r.region, r.resource, r.usageType, r.currency, r.micros, tags, resolveTeam(r.account, r.service, r.tags, rs));
+          upsert.run(
+            r.date,
+            r.provider,
+            r.account,
+            r.service,
+            r.region,
+            r.resource,
+            r.usageType,
+            r.currency,
+            r.micros,
+            tags,
+            resolveTeam(r.account, r.service, r.tags, rs),
+          );
           const k = JSON.stringify([r.account, r.service]);
           (affected.get(k) ?? affected.set(k, new Set()).get(k)!).add(r.date);
         }
@@ -400,19 +453,30 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
     // ---------------------------------------------------------- budgets
     createBudget(body: Record<string, unknown>) {
       const { name, scope, tagKey, value, amount, ...rest } = body;
-      if (Object.keys(rest).length || typeof name !== "string" || !name.trim() || name.length > 64) throw bad("Expected { name, scope, value, amount, tagKey? }; name is up to 64 characters.");
+      if (Object.keys(rest).length || typeof name !== "string" || !name.trim() || name.length > 64)
+        throw bad("Expected { name, scope, value, amount, tagKey? }; name is up to 64 characters.");
       if (scope !== "team" && scope !== "tag") throw bad("scope is team or tag.");
       if (typeof value !== "string" || !value.trim() || value.length > 128) throw bad("value is the team, or the tag value.");
       if (scope === "tag" && (typeof tagKey !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,63}$/.test(tagKey))) throw bad("A tag budget needs tagKey.");
       if (scope === "team" && tagKey !== undefined && tagKey !== null) throw bad("tagKey belongs to tag budgets.");
-      if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0 || amount > 1e12) throw bad(`amount is a monthly amount in ${currency()}, above 0.`);
+      if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0 || amount > 1e12)
+        throw bad(`amount is a monthly amount in ${currency()}, above 0.`);
       if (db.prepare("SELECT 1 FROM budgets WHERE name = ?").get(name.trim())) throw new CostError(409, "conflict", "A budget with this name exists.");
       const id = randomUUID();
-      db.prepare("INSERT INTO budgets (id, name, scope, tag_key, value, micros, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(id, name.trim(), scope, scope === "tag" ? (tagKey as string) : null, value.trim(), toMicros(amount), now());
+      db.prepare("INSERT INTO budgets (id, name, scope, tag_key, value, micros, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+        id,
+        name.trim(),
+        scope,
+        scope === "tag" ? (tagKey as string) : null,
+        value.trim(),
+        toMicros(amount),
+        now(),
+      );
       return this.budget(id);
     },
     budget(id: string, asOfInput?: string) {
-      const b = db.prepare("SELECT * FROM budgets WHERE id = ?").get(id) as { id: string; name: string; scope: "team" | "tag"; tag_key: string | null; value: string; micros: number } | undefined;
+      const b = db.prepare("SELECT * FROM budgets WHERE id = ?").get(id) as
+        { id: string; name: string; scope: "team" | "tag"; tag_key: string | null; value: string; micros: number } | undefined;
       if (!b) throw notFound("The budget");
       const asOf = asOfOf(asOfInput);
       const filter: SpendFilter = b.scope === "team" ? { team: b.value } : { tags: { [b.tag_key!]: b.value } };
@@ -474,12 +538,20 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
     },
     decideAnomaly(id: string, body: Record<string, unknown>, by: string) {
       const { status, reason, ...rest } = body;
-      if (Object.keys(rest).length || (status !== "new" && status !== "acknowledged" && status !== "expected")) throw bad("Expected { status, reason? }; status is new, acknowledged or expected.");
+      if (Object.keys(rest).length || (status !== "new" && status !== "acknowledged" && status !== "expected"))
+        throw bad("Expected { status, reason? }; status is new, acknowledged or expected.");
       if (!db.prepare("SELECT 1 FROM anomalies WHERE id = ?").get(id)) throw notFound("The anomaly");
       // "Expected" is a decision other people will rely on, so it says why.
-      if (status === "expected" && (typeof reason !== "string" || reason.trim().length < 3 || reason.length > 500)) throw bad("reason is required for expected: 3 to 500 characters.");
+      if (status === "expected" && (typeof reason !== "string" || reason.trim().length < 3 || reason.length > 500))
+        throw bad("reason is required for expected: 3 to 500 characters.");
       if (reason !== undefined && reason !== null && (typeof reason !== "string" || reason.length > 500)) throw bad("reason is at most 500 characters.");
-      db.prepare("UPDATE anomalies SET status = ?, reason = ?, decided_by = ?, decided_at = ? WHERE id = ?").run(status, status === "new" ? null : ((reason as string | undefined)?.trim() ?? null), status === "new" ? null : by, status === "new" ? null : now(), id);
+      db.prepare("UPDATE anomalies SET status = ?, reason = ?, decided_by = ?, decided_at = ? WHERE id = ?").run(
+        status,
+        status === "new" ? null : ((reason as string | undefined)?.trim() ?? null),
+        status === "new" ? null : by,
+        status === "new" ? null : now(),
+        id,
+      );
       return this.anomalies(null, undefined, 500).items.find((a) => a.id === id)!;
     },
     // ---------------------------------------------------------- overview and metrics
@@ -491,7 +563,11 @@ export function createCost(db: DatabaseSync, { retentionDays = 800 }: CostOption
       const previous = aggregate("provider", { from: monthStart(prevEnd), to: prevEnd });
       const teams = aggregate("team", { from: start, to: asOf });
       const services = aggregate("service", { from: start, to: asOf });
-      const top = (m: Map<string, number>) => [...m].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 5).map(([key, v]) => ({ key, amount: amountOf(v) }));
+      const top = (m: Map<string, number>) =>
+        [...m]
+          .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+          .slice(0, 5)
+          .map(([key, v]) => ({ key, amount: amountOf(v) }));
       const untagged = teams.groups.get(UNTAGGED) ?? 0;
       const budgets = this.budgets(asOf).budgets;
       return {

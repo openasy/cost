@@ -6,7 +6,20 @@ const one = { date: "2026-10-01", provider: "aws", account: "111", service: "Ama
 describe("parseRecords", () => {
   it("reads a JSON array and { records }", () => {
     const a = parseRecords(JSON.stringify([one]), "application/json");
-    expect(a).toEqual([{ date: "2026-10-01", provider: "aws", account: "111", service: "Amazon S3", region: "", resource: "", usageType: "", currency: "USD", micros: 1_500_000, tags: {} }]);
+    expect(a).toEqual([
+      {
+        date: "2026-10-01",
+        provider: "aws",
+        account: "111",
+        service: "Amazon S3",
+        region: "",
+        resource: "",
+        usageType: "",
+        currency: "USD",
+        micros: 1_500_000,
+        tags: {},
+      },
+    ]);
     expect(parseRecords(JSON.stringify({ records: [one] }), undefined)).toEqual(a);
     expect(parseRecords(JSON.stringify(one), undefined)).toEqual(a);
   });
@@ -18,7 +31,8 @@ describe("parseRecords", () => {
   });
 
   it("reads CSV with quotes, and tag columns", () => {
-    const csv = 'date,provider,account,service,amount,currency,tag:team,tags.env\n2026-10-01,gcp,p-1,"Compute, Engine",2.25,EUR,payments,prod\n2026-10-02,gcp,p-1,BigQuery,3,EUR,,\n';
+    const csv =
+      'date,provider,account,service,amount,currency,tag:team,tags.env\n2026-10-01,gcp,p-1,"Compute, Engine",2.25,EUR,payments,prod\n2026-10-02,gcp,p-1,BigQuery,3,EUR,,\n';
     const r = parseRecords(csv, "text/csv; charset=utf-8");
     expect(r[0]).toMatchObject({ service: "Compute, Engine", micros: 2_250_000, tags: { team: "payments", env: "prod" } });
     expect(r[1]).toMatchObject({ service: "BigQuery", tags: {} });
@@ -27,7 +41,10 @@ describe("parseRecords", () => {
   });
 
   it("handles quotes inside quotes and newlines inside a cell", () => {
-    expect(parseCsv('a,b\n"x ""y""","line\none"\n')).toEqual([["a", "b"], ['x "y"', "line\none"]]);
+    expect(parseCsv('a,b\n"x ""y""","line\none"\n')).toEqual([
+      ["a", "b"],
+      ['x "y"', "line\none"],
+    ]);
   });
 
   it("names the line and the field that is wrong", () => {

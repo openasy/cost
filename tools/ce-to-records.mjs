@@ -31,13 +31,22 @@ export function convert(ce, options = {}) {
     const date = period?.TimePeriod?.Start;
     if (!/^\d{4}-\d{2}-\d{2}/.test(date ?? "")) throw new Error("A result has no TimePeriod.Start.");
     // A monthly answer would put a whole month on its first day, which is wrong for a daily view.
-    if (period.TimePeriod.End && Date.parse(period.TimePeriod.End) - Date.parse(period.TimePeriod.Start) > 86_400_000) throw new Error(`${date}: the answer is not daily; ask for --granularity DAILY.`);
+    if (period.TimePeriod.End && Date.parse(period.TimePeriod.End) - Date.parse(period.TimePeriod.Start) > 86_400_000)
+      throw new Error(`${date}: the answer is not daily; ask for --granularity DAILY.`);
     for (const group of period.Groups ?? []) {
       const metrics = group.Metrics ?? {};
       const name = options.metric ?? Object.keys(metrics)[0];
       const m = metrics[name];
       if (!m || m.Amount === undefined) throw new Error(`${date}: the metric ${name ?? "(none)"} is not in the answer.`);
-      const record = { date: date.slice(0, 10), provider: "aws", account: options.account ?? "", service: "", amount: Number(m.Amount), currency: m.Unit ?? "USD", tags: {} };
+      const record = {
+        date: date.slice(0, 10),
+        provider: "aws",
+        account: options.account ?? "",
+        service: "",
+        amount: Number(m.Amount),
+        currency: m.Unit ?? "USD",
+        tags: {},
+      };
       (group.Keys ?? []).forEach((key, i) => {
         const def = defs[i] ?? {};
         if (def.Type === "TAG") {

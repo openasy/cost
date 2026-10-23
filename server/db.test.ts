@@ -18,7 +18,8 @@ describe("openDb", () => {
 
   it("keeps one line per day, account, service and so on", () => {
     const db = openDb(":memory:");
-    const insert = () => db.prepare("INSERT INTO records (date, provider, account, service, currency, micros) VALUES ('2026-10-01', 'aws', '1', 'S3', 'USD', 5)").run();
+    const insert = () =>
+      db.prepare("INSERT INTO records (date, provider, account, service, currency, micros) VALUES ('2026-10-01', 'aws', '1', 'S3', 'USD', 5)").run();
     insert();
     expect(insert).toThrow(/UNIQUE/);
   });

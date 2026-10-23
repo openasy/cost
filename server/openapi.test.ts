@@ -45,7 +45,9 @@ async function call(method: string, path: string, init: RequestInit = {}, concre
   // A response is either inline or a $ref to components/responses; build the JSON pointer to its schema either way.
   const shared = declared!.$ref?.split("/").pop();
   const response = shared ? spec.components.responses[shared]! : declared!;
-  const at = shared ? `openapi#/components/responses/${shared}` : `openapi#/paths/${path.replaceAll("/", "~1")}/${method.toLowerCase()}/responses/${res.status}`;
+  const at = shared
+    ? `openapi#/components/responses/${shared}`
+    : `openapi#/paths/${path.replaceAll("/", "~1")}/${method.toLowerCase()}/responses/${res.status}`;
 
   if (!response.content) {
     expect(res.headers.get("content-length") ?? "0", `${method} ${path} ${res.status} should have no body`).toBe("0");
@@ -61,7 +63,10 @@ async function call(method: string, path: string, init: RequestInit = {}, concre
   return { res, body };
 }
 
-const auth = (token: string, body?: string, type = "application/json") => ({ headers: { authorization: `Bearer ${token}`, "content-type": type }, ...(body !== undefined && { body }) });
+const auth = (token: string, body?: string, type = "application/json") => ({
+  headers: { authorization: `Bearer ${token}`, "content-type": type },
+  ...(body !== undefined && { body }),
+});
 const admin = (body?: unknown) => auth(ADMIN_TOKEN, body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body));
 
 describe("openapi.json", () => {
@@ -88,7 +93,10 @@ describe("openapi.json", () => {
 describe("responses match openapi.json", () => {
   let budget = "";
   let anomaly = "";
-  const feed = lines(...days("2026-10-01", 14, 100, { tags: { team: "platform", env: "prod" } }), ...days("2026-10-01", 14, 10, { account: "222", service: "Amazon S3" }));
+  const feed = lines(
+    ...days("2026-10-01", 14, 100, { tags: { team: "platform", env: "prod" } }),
+    ...days("2026-10-01", 14, 10, { account: "222", service: "Amazon S3" }),
+  );
   const send = (body: string, type = "application/json", token = INGEST_TOKEN) => auth(token, body, type);
   const records = "/api/v1/records";
 
@@ -104,7 +112,12 @@ describe("responses match openapi.json", () => {
   it("spend in, in every shape, and every refusal", async () => {
     await call("POST", records, send(feed), records);
     await call("POST", records, send(feed), `${records}?replace=true`);
-    await call("POST", records, send('{"date":"2026-09-01","provider":"gcp","account":"p","service":"BigQuery","amount":1,"currency":"USD"}\n', "application/x-ndjson"), records);
+    await call(
+      "POST",
+      records,
+      send('{"date":"2026-09-01","provider":"gcp","account":"p","service":"BigQuery","amount":1,"currency":"USD"}\n', "application/x-ndjson"),
+      records,
+    );
     await call("POST", records, send("date,provider,account,service,amount,currency\n2026-09-02,gcp,p,BigQuery,1,USD\n", "text/csv"), records);
     const spike = await call("POST", records, send(lines({ date: "2026-10-15", amount: 400 })), records);
     expect((spike.body as { anomaliesOpen: number }).anomaliesOpen).toBe(1);
@@ -149,7 +162,16 @@ describe("responses match openapi.json", () => {
     await call("DELETE", "/api/v1/rates/{currency}", admin(), "/api/v1/rates/EUR");
     await call("DELETE", "/api/v1/rates/{currency}", { method: "DELETE" }, "/api/v1/rates/EUR");
     await call("GET", "/api/v1/rules", admin());
-    await call("PUT", "/api/v1/rules", admin({ rules: [{ kind: "account", match: "222", team: "data" }, { kind: "tag", tagKey: "env", match: "prod", team: "ops" }] }));
+    await call(
+      "PUT",
+      "/api/v1/rules",
+      admin({
+        rules: [
+          { kind: "account", match: "222", team: "data" },
+          { kind: "tag", tagKey: "env", match: "prod", team: "ops" },
+        ],
+      }),
+    );
     await call("PUT", "/api/v1/rules", admin({ rules: [{ kind: "region", match: "x", team: "t" }] }));
     await call("PUT", "/api/v1/rules", admin("nope"));
     await call("GET", "/api/v1/rules", {});

@@ -62,7 +62,8 @@ function line(row: Row, index: number): SpendRecord {
     const entries = Object.entries(row.tags as Row);
     if (entries.length > MAX_TAGS) throw new RecordsError(`Line ${index + 1}: at most ${MAX_TAGS} tags.`);
     for (const [k, v] of entries) {
-      if (!/^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,63}$/.test(k)) throw new RecordsError(`Line ${index + 1}: tag name ${JSON.stringify(k.slice(0, 40))} is not allowed.`);
+      if (!/^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,63}$/.test(k))
+        throw new RecordsError(`Line ${index + 1}: tag name ${JSON.stringify(k.slice(0, 40))} is not allowed.`);
       if (v === null || v === undefined || v === "") continue; // an empty tag is no tag
       tags[k.toLowerCase()] = text(v, `tag ${k}`, index);
     }
@@ -90,7 +91,7 @@ export function parseCsv(input: string): string[][] {
   for (let i = 0; i < input.length; i++) {
     const c = input[i]!;
     if (quoted) {
-      if (c === '"' && input[i + 1] === '"') (cell += '"', i++);
+      if (c === '"' && input[i + 1] === '"') ((cell += '"'), i++);
       else if (c === '"') quoted = false;
       else cell += c;
     } else if (c === '"' && cell === "") quoted = true;
