@@ -28,6 +28,7 @@ import { AccountSettings, AuthGate, MembersSettings, SignInSettings, TokensSetti
 import { BellRing, ChartColumn, Coins, KeyRound, LayoutDashboard, LogIn, LogOut, Plus, Settings2, SlidersHorizontal, Trash2, UserRound, Users, Wallet, Waypoints } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, MfaSetupRequired, Unauthorized, type Anomaly, type AnomalyStatus, type Budget, type BudgetState, type Movers, type ProductLink, type Rate, type Rule, type Settings, type Spend, type Summary } from "./api.ts";
+import { useT, type T } from "./i18n.ts";
 
 const PAGES = ["spend", "budgets", "anomalies", "rules", "settings", "setup", "account", "members", "signin", "tokens"] as const;
 type Route = { page: "overview" | (typeof PAGES)[number] };
@@ -74,10 +75,11 @@ function Code({ children }: { children: ReactNode }) {
 
 /** Spend in a currency nobody priced is left out of every figure; say so wherever figures are shown. */
 function MissingRates({ currencies }: { currencies: string[] }) {
+  const t = useT();
   if (!currencies.length) return null;
   return (
-    <Callout tone="warning" title={`Spend in ${currencies.join(", ")} is left out`}>
-      Nobody has said what {currencies.length === 1 ? "it is" : "they are"} worth in the reporting currency. Add a rate under <a href="/settings">Settings</a>.
+    <Callout tone="warning" title={t("missingRates.spendInIsLeftOut", { value: currencies.join(", ") })}>
+      {t("missingRates.nobodyHasSaidWhat")}{" "}{currencies.length === 1 ? t("missingRates.itIs") : t("missingRates.theyAre")} {t("missingRates.worthInTheReportingCurrency")}{" "}<a href="/settings">{t("missingRates.settings")}</a>.
     </Callout>
   );
 }
@@ -85,6 +87,7 @@ function MissingRates({ currencies }: { currencies: string[] }) {
 // ---------------------------------------------------------------- Overview
 
 function OverviewPage({ call, summary }: { call: Call; summary: Summary }) {
+  const msg = useT();
   const [daily, setDaily] = useState<Spend>();
   const [movers, setMovers] = useState<Movers>();
   useEffect(() => {
@@ -100,35 +103,35 @@ function OverviewPage({ call, summary }: { call: Call; summary: Summary }) {
   const vsLast = s.previousMonth ? (s.forecast - s.previousMonth) / s.previousMonth : null;
   return (
     <>
-      <PageHeader title="Overview" description={`${s.month}, up to ${day(s.asOf)} · in ${c}`} />
+      <PageHeader title={msg("overviewPage.overview")} description={msg("overviewPage.upToIn", { month: s.month, day: day(s.asOf), c })} />
       <MissingRates currencies={s.missingRates} />
       <KpiGrid minWidth={160}>
-        <KpiCard label="This month so far" value={money(s.monthToDate, c)} />
+        <KpiCard label={msg("overviewPage.thisMonthSoFar")} value={money(s.monthToDate, c)} />
         <KpiCard
-          label="Forecast for the month"
+          label={msg("overviewPage.forecastForTheMonth")}
           value={money(s.forecast, c)}
-          delta={vsLast === null ? undefined : { label: `${vsLast > 0 ? "+" : ""}${percent(vsLast)} on last month`, direction: vsLast > 0 ? "up" : vsLast < 0 ? "down" : "flat", intent: vsLast > 0.05 ? "bad" : "neutral" }}
+          delta={vsLast === null ? undefined : { label: msg("overviewPage.onLastMonth", { value: vsLast > 0 ? "+" : "", percent: percent(vsLast) }), direction: vsLast > 0 ? "up" : vsLast < 0 ? "down" : "flat", intent: vsLast > 0.05 ? "bad" : "neutral" }}
         />
-        <KpiCard label="Per day, last 7 days" value={money(s.dailyRunRate, c)} />
-        <KpiCard label="Nobody owns" value={percent(s.untaggedShare)} tone={s.untaggedShare > 0.2 ? "warning" : "success"} href="/rules" />
-        <KpiCard label="Open anomalies" value={s.anomaliesOpen} tone={s.anomaliesOpen ? "warning" : "success"} href="/anomalies" />
-        <KpiCard label="Budgets at risk" value={s.budgetsAtRisk} tone={s.budgetsAtRisk ? "danger" : "success"} href="/budgets" />
+        <KpiCard label={msg("overviewPage.perDayLast7Days")} value={money(s.dailyRunRate, c)} />
+        <KpiCard label={msg("overviewPage.nobodyOwns")} value={percent(s.untaggedShare)} tone={s.untaggedShare > 0.2 ? "warning" : "success"} href="/rules" />
+        <KpiCard label={msg("overviewPage.openAnomalies")} value={s.anomaliesOpen} tone={s.anomaliesOpen ? "warning" : "success"} href="/anomalies" />
+        <KpiCard label={msg("overviewPage.budgetsAtRisk")} value={s.budgetsAtRisk} tone={s.budgetsAtRisk ? "danger" : "success"} href="/budgets" />
       </KpiGrid>
       {daily && daily.groups.length > 1 && (
-        <Panel title="Spend per day">
-          <TimeSeriesChart label="Spend per day" series={[{ id: "spend", name: "Spend", data: daily.groups.map((g) => g.amount) }]} labels={daily.groups.map((g) => day(g.key))} format={(v) => money(v, c)} area height={180} />
+        <Panel title={msg("overviewPage.spendPerDay")}>
+          <TimeSeriesChart label={msg("overviewPage.spendPerDay")} series={[{ id: "spend", name: "Spend", data: daily.groups.map((g) => g.amount) }]} labels={daily.groups.map((g) => day(g.key))} format={(v) => money(v, c)} area height={180} />
         </Panel>
       )}
       <div className="grid gap-3 lg:grid-cols-2">
-        <Panel title="Teams this month" description="A team tag on a line names the team; otherwise the rules do.">
-          {s.topTeams.length ? <BarList label="Spend by team" items={s.topTeams.map((t) => ({ id: t.key, label: t.key, value: t.amount, href: `/spend?groupBy=service&team=${encodeURIComponent(t.key)}` }))} format={(v) => money(v, c)} /> : <p className="m-0 text-sm text-fg-muted">No spend this month.</p>}
+        <Panel title={msg("overviewPage.teamsThisMonth")} description={msg("overviewPage.aTeamTagOnA")}>
+          {s.topTeams.length ? <BarList label={msg("overviewPage.spendByTeam")} items={s.topTeams.map((t) => ({ id: t.key, label: t.key, value: t.amount, href: `/spend?groupBy=service&team=${encodeURIComponent(t.key)}` }))} format={(v) => money(v, c)} /> : <p className="m-0 text-sm text-fg-muted">{msg("overviewPage.noSpendThisMonth")}</p>}
         </Panel>
-        <Panel title="Services this month">
-          {s.topServices.length ? <BarList label="Spend by service" items={s.topServices.map((t) => ({ id: t.key, label: t.key, value: t.amount }))} format={(v) => money(v, c)} /> : <p className="m-0 text-sm text-fg-muted">No spend this month.</p>}
+        <Panel title={msg("overviewPage.servicesThisMonth")}>
+          {s.topServices.length ? <BarList label={msg("overviewPage.spendByService")} items={s.topServices.map((t) => ({ id: t.key, label: t.key, value: t.amount }))} format={(v) => money(v, c)} /> : <p className="m-0 text-sm text-fg-muted">{msg("overviewPage.noSpendThisMonth")}</p>}
         </Panel>
       </div>
       {movers && movers.movers.length > 0 && (
-        <Panel title="What moved" description={`${day(movers.period.from)} to ${day(movers.period.to)}, against the same number of days before.`} flush>
+        <Panel title={msg("overviewPage.whatMoved")} description={msg("overviewPage.toAgainstTheSameNumber", { day: day(movers.period.from), day2: day(movers.period.to) })} flush>
           <MoversTable movers={movers} />
         </Panel>
       )}
@@ -137,15 +140,16 @@ function OverviewPage({ call, summary }: { call: Call; summary: Summary }) {
 }
 
 function MoversTable({ movers }: { movers: Movers }) {
+  const t = useT();
   const c = movers.currency;
   type Row = Movers["movers"][number];
   const columns: Column<Row>[] = [
     { id: "key", header: movers.groupBy.replace(/^tag:/, "Tag "), width: "34%", cell: (m) => <span className="cost-wrap font-medium">{m.key}</span> },
-    { id: "current", header: "Now", align: "right", cell: (m) => money(m.current, c) },
-    { id: "previous", header: "Before", align: "right", cell: (m) => money(m.previous, c) },
+    { id: "current", header: t("moversTable.now"), align: "right", cell: (m) => money(m.current, c) },
+    { id: "previous", header: t("moversTable.before"), align: "right", cell: (m) => money(m.previous, c) },
     {
       id: "change",
-      header: "Change",
+      header: t("moversTable.change"),
       align: "right",
       sortValue: (m) => m.change,
       cell: (m) => (
@@ -157,28 +161,28 @@ function MoversTable({ movers }: { movers: Movers }) {
       ),
     },
   ];
-  return <DataTable label="What moved" columns={columns} rows={movers.movers} getRowId={(m) => m.key} minWidth={560} />;
+  return <DataTable label={t("moversTable.whatMoved")} columns={columns} rows={movers.movers} getRowId={(m) => m.key} minWidth={560} />;
 }
 
 // ---------------------------------------------------------------- Spend
 
-const GROUPS = [
-  { value: "team", label: "Team" },
-  { value: "service", label: "Service" },
-  { value: "account", label: "Account" },
-  { value: "provider", label: "Provider" },
-  { value: "region", label: "Region" },
-  { value: "day", label: "Day" },
-  { value: "week", label: "Week" },
-  { value: "month", label: "Month" },
-];
+const GROUPS = (t: T) => ([
+  { value: "team", label: t("groups.team") },
+  { value: "service", label: t("groups.service") },
+  { value: "account", label: t("groups.account") },
+  { value: "provider", label: t("groups.provider") },
+  { value: "region", label: t("groups.region") },
+  { value: "day", label: t("groups.day") },
+  { value: "week", label: t("groups.week") },
+  { value: "month", label: t("groups.month") },
+]);
 type Period = "month" | "last-month" | "30" | "90";
-const PERIODS: Array<{ value: Period; label: string }> = [
-  { value: "month", label: "This month" },
-  { value: "last-month", label: "Last month" },
-  { value: "30", label: "30 days" },
-  { value: "90", label: "90 days" },
-];
+const PERIODS = (t: T): Array<{ value: Period; label: string }> => ([
+  { value: "month", label: t("periods.thisMonth") },
+  { value: "last-month", label: t("periods.lastMonth") },
+  { value: "30", label: t("periods.n30Days") },
+  { value: "90", label: t("periods.n90Days") },
+]);
 
 function periodOf(period: Period, asOf: string): { from: string; to: string } {
   const at = Date.parse(`${asOf}T00:00:00Z`);
@@ -192,6 +196,7 @@ function periodOf(period: Period, asOf: string): { from: string; to: string } {
 }
 
 function SpendPage({ call, summary }: { call: Call; summary: Summary }) {
+  const t = useT();
   const params = new URLSearchParams(window.location.search);
   const [groupBy, setGroupBy] = useState(params.get("groupBy") ?? "team");
   const [tagKey, setTagKey] = useState("");
@@ -215,36 +220,36 @@ function SpendPage({ call, summary }: { call: Call; summary: Summary }) {
   const c = summary.currency;
   const isTime = ["day", "week", "month"].includes(by);
   const columns: Column<Spend["groups"][number]>[] = [
-    { id: "key", header: GROUPS.find((g) => g.value === groupBy)?.label ?? `Tag ${tagKey}`, width: "40%", sortValue: (g) => g.key, cell: (g) => <span className="cost-wrap font-medium">{isTime ? g.key : g.key || "(none)"}</span> },
-    { id: "amount", header: "Spend", align: "right", sortValue: (g) => g.amount, cell: (g) => money(g.amount, c) },
-    { id: "share", header: "Share", align: "right", sortValue: (g) => g.share, cell: (g) => percent(g.share) },
+    { id: "key", header: GROUPS(t).find((g) => g.value === groupBy)?.label ?? t("spendPage.tag", { tagKey }), width: "40%", sortValue: (g) => g.key, cell: (g) => <span className="cost-wrap font-medium">{isTime ? g.key : g.key || "(none)"}</span> },
+    { id: "amount", header: t("spendPage.spend"), align: "right", sortValue: (g) => g.amount, cell: (g) => money(g.amount, c) },
+    { id: "share", header: t("spendPage.share"), align: "right", sortValue: (g) => g.share, cell: (g) => percent(g.share) },
   ];
   return (
     <>
-      <PageHeader title="Spend" description={spend ? `${money(spend.total, c)} from ${day(spend.from)} to ${day(spend.to)}${team ? ` · team ${team}` : ""}` : undefined} />
+      <PageHeader title={t("spendPage.spend")} description={spend ? t("spendPage.fromTo", { money: money(spend.total, c), day: day(spend.from), day2: day(spend.to), value: team ? ` · team ${team}` : "" }) : undefined} />
       <div className="flex flex-wrap items-end gap-2">
-        <SegmentedControl label="Period" value={period} onChange={setPeriod} options={PERIODS} />
-        <SelectField label="Group by" value={groupBy} onChange={(e) => setGroupBy(e.target.value)} options={[...GROUPS, { value: "tag", label: "A tag" }]} />
-        {groupBy === "tag" && <TextField label="Tag name" value={tagKey} onChange={(e) => setTagKey(e.target.value)} hint="Such as env." />}
-        <TextField label="Team" value={team} onChange={(e) => setTeam(e.target.value)} hint="Empty for all; untagged for spend nobody owns." />
+        <SegmentedControl label={t("spendPage.period")} value={period} onChange={setPeriod} options={PERIODS(t)} />
+        <SelectField label={t("spendPage.groupBy")} value={groupBy} onChange={(e) => setGroupBy(e.target.value)} options={[...GROUPS(t), { value: "tag", label: t("spendPage.aTag") }]} />
+        {groupBy === "tag" && <TextField label={t("spendPage.tagName")} value={tagKey} onChange={(e) => setTagKey(e.target.value)} hint={t("spendPage.suchAsEnv")} />}
+        <TextField label={t("spendPage.team")} value={team} onChange={(e) => setTeam(e.target.value)} hint={t("spendPage.emptyForAllUntaggedFor")} />
       </div>
-      {error && <Callout tone="danger" title="Could not read the spend">{error}</Callout>}
+      {error && <Callout tone="danger" title={t("spendPage.couldNotReadTheSpend")}>{error}</Callout>}
       {spend && <MissingRates currencies={spend.missingRates} />}
       {spend?.untagged && spend.untagged.amount > 0 && (
         <p className="m-0 text-sm text-fg-muted">
-          {money(spend.untagged.amount, c)} ({percent(spend.untagged.share)}) has no team yet. Give it one with a team tag, or with <a href="/rules">Rules</a>.
+          {money(spend.untagged.amount, c)} ({percent(spend.untagged.share)}{t("spendPage.hasNoTeamYetGive")}{" "}<a href="/rules">{t("spendPage.rules")}</a>.
         </p>
       )}
       {spend && isTime && spend.groups.length > 1 && (
-        <Panel title="Over time">
-          <TimeSeriesChart label="Spend over time" series={[{ id: "spend", name: "Spend", data: spend.groups.map((g) => g.amount) }]} labels={spend.groups.map((g) => g.key)} format={(v) => money(v, c)} area height={180} />
+        <Panel title={t("spendPage.overTime")}>
+          <TimeSeriesChart label={t("spendPage.spendOverTime")} series={[{ id: "spend", name: "Spend", data: spend.groups.map((g) => g.amount) }]} labels={spend.groups.map((g) => g.key)} format={(v) => money(v, c)} area height={180} />
         </Panel>
       )}
       <Panel flush>
-        <DataTable label="Spend" columns={columns} rows={spend?.groups ?? []} loading={!spend && !error && !!by} getRowId={(g) => g.key} minWidth={520} pageSize={50} empty={<EmptyState title="No spend">Nothing was spent in this period{team ? " by this team" : ""}.</EmptyState>} />
+        <DataTable label={t("spendPage.spend")} columns={columns} rows={spend?.groups ?? []} loading={!spend && !error && !!by} getRowId={(g) => g.key} minWidth={520} pageSize={50} empty={<EmptyState title={t("spendPage.noSpend")}>{t("spendPage.nothingWasSpentInThis")}{team ? t("spendPage.byThisTeam") : ""}.</EmptyState>} />
       </Panel>
       {movers && movers.movers.length > 0 && (
-        <Panel title="What moved" description={`Against ${day(movers.previousPeriod.from)} to ${day(movers.previousPeriod.to)}.`} flush>
+        <Panel title={t("spendPage.whatMoved")} description={t("spendPage.againstTo", { day: day(movers.previousPeriod.from), day2: day(movers.previousPeriod.to) })} flush>
           <MoversTable movers={movers} />
         </Panel>
       )}
@@ -254,10 +259,11 @@ function SpendPage({ call, summary }: { call: Call; summary: Summary }) {
 
 // ---------------------------------------------------------------- Budgets
 
-const BUDGET_LABEL: Record<BudgetState, string> = { ok: "On track", warning: "Past 50%", alert: "Past 80%", over: "Over" };
+const BUDGET_LABEL = (t: T): Record<BudgetState, string> => ({ ok: t("budgetLabel.onTrack"), warning: "Past 50%", alert: "Past 80%", over: "Over" });
 const BUDGET_TONE: Record<BudgetState, "success" | "info" | "warning" | "danger"> = { ok: "success", warning: "info", alert: "warning", over: "danger" };
 
 function BudgetDialog({ call, currency, onClose, onSaved }: { call: Call; currency: string; onClose: () => void; onSaved: () => void }) {
+  const t = useT();
   const [name, setName] = useState("");
   const [scope, setScope] = useState<"team" | "tag">("team");
   const [tagKey, setTagKey] = useState("");
@@ -277,40 +283,41 @@ function BudgetDialog({ call, currency, onClose, onSaved }: { call: Call; curren
     <Dialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title="Add a budget"
-      description="A monthly amount for a team or for a tag value. Its alerts are at 50%, 80% and 100%, and the forecast says where the month ends."
+      title={t("budgetDialog.addABudget")}
+      description={t("budgetDialog.aMonthlyAmountForA")}
       onSubmit={save}
       footer={
         <>
           <Button type="button" onClick={onClose}>
-            Cancel
+            {t("budgetDialog.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={!name.trim() || !value.trim() || !(Number(amount) > 0) || (scope === "tag" && !tagKey.trim())}>
-            Add budget
+            {t("budgetDialog.addBudget")}
           </Button>
         </>
       }
     >
-      <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+      <TextField label={t("budgetDialog.name")} value={name} onChange={(e) => setName(e.target.value)} />
       <SelectField
-        label="For"
+        label={t("budgetDialog.for")}
         value={scope}
         onChange={(e) => setScope(e.target.value as "team" | "tag")}
         options={[
-          { value: "team", label: "A team" },
-          { value: "tag", label: "A tag value" },
+          { value: "team", label: t("budgetDialog.aTeam") },
+          { value: "tag", label: t("budgetDialog.aTagValue") },
         ]}
       />
       <div className="grid grid-cols-2 gap-2">
-        {scope === "tag" && <TextField label="Tag name" value={tagKey} onChange={(e) => setTagKey(e.target.value)} hint="Such as env." />}
-        <TextField label={scope === "team" ? "Team" : "Tag value"} value={value} onChange={(e) => setValue(e.target.value)} hint={scope === "tag" ? "Such as prod." : undefined} />
+        {scope === "tag" && <TextField label={t("budgetDialog.tagName")} value={tagKey} onChange={(e) => setTagKey(e.target.value)} hint={t("budgetDialog.suchAsEnv")} />}
+        <TextField label={scope === "team" ? t("budgetDialog.team") : t("budgetDialog.tagValue")} value={value} onChange={(e) => setValue(e.target.value)} hint={scope === "tag" ? t("budgetDialog.suchAsProd") : undefined} />
       </div>
-      <TextField label={`Each month (${currency})`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} error={error} />
+      <TextField label={t("budgetDialog.eachMonth", { currency })} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} error={error} />
     </Dialog>
   );
 }
 
 function BudgetsPage({ call, summary, reload }: { call: Call; summary: Summary; reload: () => void }) {
+  const t = useT();
   const { can } = useAuth();
   const [budgets, setBudgets] = useState<Budget[]>();
   const [adding, setAdding] = useState(false);
@@ -320,43 +327,43 @@ function BudgetsPage({ call, summary, reload }: { call: Call; summary: Summary; 
 
   const c = summary.currency;
   const columns: Column<Budget>[] = [
-    { id: "state", header: "State", width: "110px", cell: (b) => <StatusBadge tone={BUDGET_TONE[b.state]}>{BUDGET_LABEL[b.state]}</StatusBadge> },
+    { id: "state", header: t("budgetsPage.state"), width: "110px", cell: (b) => <StatusBadge tone={BUDGET_TONE[b.state]}>{BUDGET_LABEL(t)[b.state]}</StatusBadge> },
     {
       id: "name",
-      header: "Budget",
+      header: t("budgetsPage.budget"),
       width: "26%",
       sortValue: (b) => b.name,
       cell: (b) => (
         <span className="flex min-w-0 flex-col">
           <span className="font-medium">{b.name}</span>
-          <span className="text-xs text-fg-muted">{b.scope === "team" ? `Team ${b.value}` : `${b.tagKey} = ${b.value}`}</span>
+          <span className="text-xs text-fg-muted">{b.scope === "team" ? t("budgetsPage.team", { value: b.value }) : `${b.tagKey} = ${b.value}`}</span>
         </span>
       ),
     },
-    { id: "spent", header: "Spent", align: "right", sortValue: (b) => b.percent, cell: (b) => `${money(b.spent, c)} (${b.percent}%)` },
-    { id: "amount", header: "Budget", align: "right", cell: (b) => money(b.amount, c) },
-    { id: "forecast", header: "Forecast", align: "right", sortValue: (b) => b.forecastPercent, cell: (b) => <span className={b.forecastPercent >= 100 ? "text-danger" : undefined}>{`${money(b.forecast, c)} (${b.forecastPercent}%)`}</span> },
-    { id: "burn", header: "Burn rate", align: "right", sortValue: (b) => b.burnRate, cell: (b) => <span className={b.burnRate > 1 ? "text-warning" : undefined}>{b.burnRate.toFixed(2)}</span> },
-    ...(can("admin") ? [{ id: "remove", header: "", align: "right" as const, width: "56px", cell: (b: Budget) => <Button size="sm" icon={<Trash2 />} aria-label={`Delete ${b.name}`} onClick={() => setRemoving(b)} /> }] : []),
+    { id: "spent", header: t("budgetsPage.spent"), align: "right", sortValue: (b) => b.percent, cell: (b) => `${money(b.spent, c)} (${b.percent}%)` },
+    { id: "amount", header: t("budgetsPage.budget"), align: "right", cell: (b) => money(b.amount, c) },
+    { id: "forecast", header: t("budgetsPage.forecast"), align: "right", sortValue: (b) => b.forecastPercent, cell: (b) => <span className={b.forecastPercent >= 100 ? "text-danger" : undefined}>{`${money(b.forecast, c)} (${b.forecastPercent}%)`}</span> },
+    { id: "burn", header: t("budgetsPage.burnRate"), align: "right", sortValue: (b) => b.burnRate, cell: (b) => <span className={b.burnRate > 1 ? "text-warning" : undefined}>{b.burnRate.toFixed(2)}</span> },
+    ...(can("admin") ? [{ id: "remove", header: "", align: "right" as const, width: "56px", cell: (b: Budget) => <Button size="sm" icon={<Trash2 />} aria-label={t("budgetsPage.delete", { name: b.name })} onClick={() => setRemoving(b)} /> }] : []),
   ];
   return (
     <>
       <PageHeader
-        title="Budgets"
-        description={`${summary.month}. A burn rate above 1 means the budget runs out before the month does.`}
+        title={t("budgetsPage.budgets")}
+        description={t("budgetsPage.aBurnRateAbove1", { month: summary.month })}
         actions={
           can("admin") && (
             <Button variant="primary" icon={<Plus />} onClick={() => setAdding(true)}>
-              Add budget
+              {t("budgetsPage.addBudget")}
             </Button>
           )
         }
       />
       <MissingRates currencies={summary.missingRates} />
       <Panel flush>
-        <DataTable label="Budgets" columns={columns} rows={budgets ?? []} loading={!budgets} getRowId={(b) => b.id} minWidth={860} empty={<EmptyState title="No budgets yet">{can("admin") ? "Add a monthly budget for a team or a tag." : "An admin adds the budgets."}</EmptyState>} />
+        <DataTable label={t("budgetsPage.budgets")} columns={columns} rows={budgets ?? []} loading={!budgets} getRowId={(b) => b.id} minWidth={860} empty={<EmptyState title={t("budgetsPage.noBudgetsYet")}>{can("admin") ? t("budgetsPage.addAMonthlyBudgetFor") : t("budgetsPage.anAdminAddsTheBudgets")}</EmptyState>} />
       </Panel>
-      <p className="m-0 text-xs text-fg-muted">The forecast is the spend so far plus the last seven days' rate for the days left. /metrics has each budget's share and burn rate, to alert on.</p>
+      <p className="m-0 text-xs text-fg-muted">{t("budgetsPage.theForecastIsTheSpend")}</p>
       {adding && (
         <BudgetDialog
           call={call}
@@ -373,12 +380,12 @@ function BudgetsPage({ call, summary, reload }: { call: Call; summary: Summary; 
         <Dialog
           open
           onOpenChange={(o) => !o && setRemoving(undefined)}
-          title={`Delete ${removing.name}?`}
-          description="The spend stays; only the budget goes."
+          title={t("budgetsPage.delete2", { name: removing.name })}
+          description={t("budgetsPage.theSpendStaysOnlyThe")}
           footer={
             <>
               <Button type="button" onClick={() => setRemoving(undefined)}>
-                Cancel
+                {t("budgetsPage.cancel")}
               </Button>
               <Button
                 type="button"
@@ -391,7 +398,7 @@ function BudgetsPage({ call, summary, reload }: { call: Call; summary: Summary; 
                   })
                 }
               >
-                Delete
+                {t("budgetsPage.delete3")}
               </Button>
             </>
           }
@@ -409,6 +416,7 @@ const ANOMALY_LABEL: Record<AnomalyStatus, string> = { new: "New", acknowledged:
 const ANOMALY_TONE: Record<AnomalyStatus, "warning" | "neutral" | "info"> = { new: "warning", acknowledged: "neutral", expected: "info" };
 
 function DecideDialog({ anomaly, call, onClose, onSaved }: { anomaly: Anomaly; call: Call; onClose: () => void; onSaved: () => void }) {
+  const t = useT();
   const [status, setStatus] = useState<AnomalyStatus>(anomaly.status === "new" ? "acknowledged" : anomaly.status);
   const [reason, setReason] = useState(anomaly.reason ?? "");
   const [error, setError] = useState<string>();
@@ -425,36 +433,37 @@ function DecideDialog({ anomaly, call, onClose, onSaved }: { anomaly: Anomaly; c
     <Dialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title={`${anomaly.service} on ${day(anomaly.date)}`}
-      description={`${money(anomaly.amount, anomaly.currency)} against a usual ${money(anomaly.usual, anomaly.currency)}, in account ${anomaly.account}.`}
+      title={t("decideDialog.on", { service: anomaly.service, day: day(anomaly.date) })}
+      description={t("decideDialog.againstAUsualInAccount", { money: money(anomaly.amount, anomaly.currency), money2: money(anomaly.usual, anomaly.currency), account: anomaly.account })}
       onSubmit={save}
       footer={
         <>
           <Button type="button" onClick={onClose}>
-            Cancel
+            {t("decideDialog.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={status === "expected" && reason.trim().length < 3}>
-            Save
+            {t("decideDialog.save")}
           </Button>
         </>
       }
     >
       <SelectField
-        label="What it is"
+        label={t("decideDialog.whatItIs")}
         value={status}
         onChange={(e) => setStatus(e.target.value as AnomalyStatus)}
         options={[
-          { value: "acknowledged", label: "Acknowledged: someone is looking" },
-          { value: "expected", label: "Expected: we knew, and why" },
-          { value: "new", label: "New: nobody has looked" },
+          { value: "acknowledged", label: t("decideDialog.acknowledgedSomeoneIsLooking") },
+          { value: "expected", label: t("decideDialog.expectedWeKnewAndWhy") },
+          { value: "new", label: t("decideDialog.newNobodyHasLooked") },
         ]}
       />
-      <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} hint={status === "expected" ? "Required: a load test, a migration, a new customer." : "Optional."} error={error} />
+      <TextField label={t("decideDialog.reason")} value={reason} onChange={(e) => setReason(e.target.value)} hint={status === "expected" ? t("decideDialog.requiredALoadTestA") : t("decideDialog.optional")} error={error} />
     </Dialog>
   );
 }
 
 function AnomaliesPage({ call, summary, reload }: { call: Call; summary: Summary; reload: () => void }) {
+  const t = useT();
   const { can } = useAuth();
   const [tab, setTab] = useState<AnomalyStatus>("new");
   const [rows, setRows] = useState<Anomaly[]>();
@@ -466,40 +475,40 @@ function AnomaliesPage({ call, summary, reload }: { call: Call; summary: Summary
   useEffect(load, [load]);
 
   const columns: Column<Anomaly>[] = [
-    { id: "date", header: "Day", width: "90px", sortValue: (a) => a.date, cell: (a) => <span className="whitespace-nowrap text-xs">{day(a.date)}</span> },
+    { id: "date", header: t("anomaliesPage.day"), width: "90px", sortValue: (a) => a.date, cell: (a) => <span className="whitespace-nowrap text-xs">{day(a.date)}</span> },
     {
       id: "service",
-      header: "Service",
+      header: t("anomaliesPage.service"),
       width: "30%",
       cell: (a) => (
         <span className="flex min-w-0 flex-col">
           <span className="cost-wrap font-medium">{a.service}</span>
-          <span className="text-xs text-fg-muted">Account {a.account}</span>
+          <span className="text-xs text-fg-muted">{t("anomaliesPage.account", { account: a.account })}</span>
         </span>
       ),
     },
-    { id: "amount", header: "Cost", align: "right", cell: (a) => money(a.amount, a.currency) },
-    { id: "usual", header: "Usual", align: "right", cell: (a) => money(a.usual, a.currency) },
-    { id: "extra", header: "More", align: "right", sortValue: (a) => a.extra, cell: (a) => <span className="text-danger">+{money(a.extra, a.currency)}</span> },
-    { id: "status", header: "Status", cell: (a) => <StatusBadge tone={ANOMALY_TONE[a.status]}>{ANOMALY_LABEL[a.status]}</StatusBadge> },
-    { id: "reason", header: "Reason", width: "22%", cell: (a) => <span className="cost-clamp text-xs text-fg-muted" title={a.reason ?? undefined}>{a.reason ?? ""}{a.decidedBy ? ` (${a.decidedBy})` : ""}</span> },
-    ...(can("editor") ? [{ id: "decide", header: "", align: "right" as const, width: "90px", cell: (a: Anomaly) => <Button size="sm" onClick={() => setDeciding(a)}>Decide</Button> }] : []),
+    { id: "amount", header: t("anomaliesPage.cost"), align: "right", cell: (a) => money(a.amount, a.currency) },
+    { id: "usual", header: t("anomaliesPage.usual"), align: "right", cell: (a) => money(a.usual, a.currency) },
+    { id: "extra", header: t("anomaliesPage.more"), align: "right", sortValue: (a) => a.extra, cell: (a) => <span className="text-danger">+{money(a.extra, a.currency)}</span> },
+    { id: "status", header: t("anomaliesPage.status"), cell: (a) => <StatusBadge tone={ANOMALY_TONE[a.status]}>{ANOMALY_LABEL[a.status]}</StatusBadge> },
+    { id: "reason", header: t("anomaliesPage.reason"), width: "22%", cell: (a) => <span className="cost-clamp text-xs text-fg-muted" title={a.reason ?? undefined}>{a.reason ?? ""}{a.decidedBy ? ` (${a.decidedBy})` : ""}</span> },
+    ...(can("editor") ? [{ id: "decide", header: "", align: "right" as const, width: "90px", cell: (a: Anomaly) => <Button size="sm" onClick={() => setDeciding(a)}>{t("anomaliesPage.decide")}</Button> }] : []),
   ];
   return (
     <>
-      <PageHeader title="Anomalies" description="A day of one service in one account that cost more than the mean of the 14 days before it plus three standard deviations, and by more than the minimum under Settings." />
+      <PageHeader title={t("anomaliesPage.anomalies")} description={t("anomaliesPage.aDayOfOneService")} />
       <SegmentedControl
-        label="Status"
+        label={t("anomaliesPage.status")}
         value={tab}
         onChange={setTab}
         options={[
-          { value: "new", label: `New${summary.anomaliesOpen ? ` (${summary.anomaliesOpen})` : ""}` },
-          { value: "acknowledged", label: "Acknowledged" },
-          { value: "expected", label: "Expected" },
+          { value: "new", label: t("anomaliesPage.new", { value: summary.anomaliesOpen ? ` (${summary.anomaliesOpen})` : "" }) },
+          { value: "acknowledged", label: t("anomaliesPage.acknowledged") },
+          { value: "expected", label: t("anomaliesPage.expected") },
         ]}
       />
       <Panel flush>
-        <DataTable label="Anomalies" columns={columns} rows={rows ?? []} loading={!rows} getRowId={(a) => a.id} minWidth={900} pageSize={50} empty={<EmptyState title={tab === "new" ? "Nothing unusual" : "None"}>{tab === "new" ? "No day has cost far more than usual." : "Nothing has been decided this way."}</EmptyState>} />
+        <DataTable label={t("anomaliesPage.anomalies")} columns={columns} rows={rows ?? []} loading={!rows} getRowId={(a) => a.id} minWidth={900} pageSize={50} empty={<EmptyState title={tab === "new" ? t("anomaliesPage.nothingUnusual") : t("anomaliesPage.none")}>{tab === "new" ? t("anomaliesPage.noDayHasCostFar") : t("anomaliesPage.nothingHasBeenDecidedThis")}</EmptyState>} />
       </Panel>
       {deciding && (
         <DecideDialog
@@ -522,6 +531,7 @@ function AnomaliesPage({ call, summary, reload }: { call: Call; summary: Summary
 type DraftRule = { kind: Rule["kind"]; match: string; tagKey: string; team: string };
 
 function RulesPage({ call, reload }: { call: Call; reload: () => void }) {
+  const t = useT();
   const { can } = useAuth();
   const admin = can("admin");
   const [rules, setRules] = useState<DraftRule[]>();
@@ -554,38 +564,38 @@ function RulesPage({ call, reload }: { call: Call; reload: () => void }) {
   };
   return (
     <>
-      <PageHeader title="Rules" description="Who owns spend that has no team tag. A team tag on a line wins over every rule; then the first rule that matches." />
-      <Panel title="In order" description="Service names take * and ? as wildcards; case does not matter.">
+      <PageHeader title={t("rulesPage.rules")} description={t("rulesPage.whoOwnsSpendThatHas")} />
+      <Panel title={t("rulesPage.inOrder")} description={t("rulesPage.serviceNamesTakeAndAs")}>
         {!rules ? null : !rules.length && !admin ? (
-          <p className="m-0 text-sm text-fg-muted">No rules: spend without a team tag belongs to nobody.</p>
+          <p className="m-0 text-sm text-fg-muted">{t("rulesPage.noRulesSpendWithoutA")}</p>
         ) : (
           <div className="flex flex-col gap-2">
             {rules.map((r, i) => (
               <div key={i} className="cost-rule flex flex-wrap items-end gap-2">
                 <SelectField
-                  label="When"
+                  label={t("rulesPage.when")}
                   value={r.kind}
                   disabled={!admin}
                   onChange={(e) => change(i, { kind: e.target.value as Rule["kind"] })}
                   options={[
-                    { value: "account", label: "Account is" },
-                    { value: "service", label: "Service is" },
-                    { value: "tag", label: "Tag is" },
+                    { value: "account", label: t("rulesPage.accountIs") },
+                    { value: "service", label: t("rulesPage.serviceIs") },
+                    { value: "tag", label: t("rulesPage.tagIs") },
                   ]}
                 />
-                {r.kind === "tag" && <TextField label="Tag name" value={r.tagKey} disabled={!admin} onChange={(e) => change(i, { tagKey: e.target.value })} />}
-                <TextField label={r.kind === "account" ? "Account id" : r.kind === "service" ? "Service" : "Tag value"} value={r.match} disabled={!admin} onChange={(e) => change(i, { match: e.target.value })} />
-                <TextField label="Team" value={r.team} disabled={!admin} onChange={(e) => change(i, { team: e.target.value })} />
-                {admin && <Button icon={<Trash2 />} aria-label="Remove rule" onClick={() => setRules((rs) => rs?.filter((_, j) => j !== i))} />}
+                {r.kind === "tag" && <TextField label={t("rulesPage.tagName")} value={r.tagKey} disabled={!admin} onChange={(e) => change(i, { tagKey: e.target.value })} />}
+                <TextField label={r.kind === "account" ? t("rulesPage.accountId") : r.kind === "service" ? t("rulesPage.service") : t("rulesPage.tagValue")} value={r.match} disabled={!admin} onChange={(e) => change(i, { match: e.target.value })} />
+                <TextField label={t("rulesPage.team")} value={r.team} disabled={!admin} onChange={(e) => change(i, { team: e.target.value })} />
+                {admin && <Button icon={<Trash2 />} aria-label={t("rulesPage.removeRule")} onClick={() => setRules((rs) => rs?.filter((_, j) => j !== i))} />}
               </div>
             ))}
             {admin && (
               <div className="flex flex-wrap items-center gap-2">
                 <Button icon={<Plus />} onClick={() => setRules((rs) => [...(rs ?? []), { kind: "account", match: "", tagKey: "", team: "" }])}>
-                  Add rule
+                  {t("rulesPage.addRule")}
                 </Button>
                 <Button variant="primary" onClick={() => void save()} disabled={JSON.stringify(rules) === saved}>
-                  Save rules
+                  {t("rulesPage.saveRules")}
                 </Button>
                 {error && <span className="text-xs text-danger">{error}</span>}
               </div>
@@ -600,6 +610,7 @@ function RulesPage({ call, reload }: { call: Call; reload: () => void }) {
 // ---------------------------------------------------------------- Settings and setup
 
 function CostSettingsPage({ call, reload }: { call: Call; reload: () => void }) {
+  const t = useT();
   const { can } = useAuth();
   const admin = can("admin");
   const [settings, setSettings] = useState<Settings>();
@@ -642,8 +653,8 @@ function CostSettingsPage({ call, reload }: { call: Call; reload: () => void }) 
     }
   };
   const columns: Column<Rate>[] = [
-    { id: "currency", header: "Currency", cell: (r) => <Badge>{r.currency}</Badge> },
-    { id: "rate", header: settings ? `One unit in ${settings.currency}` : "Rate", align: "right", cell: (r) => r.rate },
+    { id: "currency", header: t("costSettingsPage.currency"), cell: (r) => <Badge>{r.currency}</Badge> },
+    { id: "rate", header: settings ? t("costSettingsPage.oneUnitIn", { currency: settings.currency }) : t("costSettingsPage.rate"), align: "right", cell: (r) => r.rate },
     ...(admin
       ? [
           {
@@ -651,42 +662,42 @@ function CostSettingsPage({ call, reload }: { call: Call; reload: () => void }) 
             header: "",
             align: "right" as const,
             width: "56px",
-            cell: (r: Rate) => <Button size="sm" icon={<Trash2 />} aria-label={`Delete the rate of ${r.currency}`} onClick={() => void call(`/api/v1/rates/${r.currency}`, { method: "DELETE" }).then(() => (loadRates(), reload()))} />,
+            cell: (r: Rate) => <Button size="sm" icon={<Trash2 />} aria-label={t("costSettingsPage.deleteTheRateOf", { currency: r.currency })} onClick={() => void call(`/api/v1/rates/${r.currency}`, { method: "DELETE" }).then(() => (loadRates(), reload()))} />,
           },
         ]
       : []),
   ];
   return (
     <>
-      <PageHeader title="Settings" description="The currency figures are shown in, what other currencies are worth, and how large a rise must be to be an anomaly." />
+      <PageHeader title={t("costSettingsPage.settings")} description={t("costSettingsPage.theCurrencyFiguresAreShown")} />
       {settings && (
-        <Panel title="Reporting">
+        <Panel title={t("costSettingsPage.reporting")}>
           <div className="grid gap-2 sm:grid-cols-2">
-            <TextField label="Reporting currency" value={currency} onChange={(e) => setCurrency(e.target.value)} disabled={!admin} hint="A three-letter code, such as USD or EUR." />
-            <TextField label={`An anomaly is at least this much more than usual (${settings.currency})`} inputMode="decimal" value={minimum} onChange={(e) => setMinimum(e.target.value)} disabled={!admin} error={error} />
+            <TextField label={t("costSettingsPage.reportingCurrency")} value={currency} onChange={(e) => setCurrency(e.target.value)} disabled={!admin} hint={t("costSettingsPage.aThreeLetterCodeSuch")} />
+            <TextField label={t("costSettingsPage.anAnomalyIsAtLeast", { currency: settings.currency })} inputMode="decimal" value={minimum} onChange={(e) => setMinimum(e.target.value)} disabled={!admin} error={error} />
           </div>
           {admin && (
             <div className="mt-3">
               <Button variant="primary" onClick={() => void put()} disabled={currency.trim().toUpperCase() === settings.currency && Number(minimum) === settings.anomalyMinimum}>
-                Save
+                {t("costSettingsPage.save")}
               </Button>
             </div>
           )}
         </Panel>
       )}
-      <Panel title="Rates" description="Spend in a currency without a rate is left out of every figure, and each page says so. Rates are fixed until you change them; nothing is fetched." flush>
-        <DataTable label="Rates" columns={columns} rows={rates ?? []} loading={!rates} getRowId={(r) => r.currency} minWidth={360} empty={<EmptyState title="No rates">All spend is in the reporting currency, or none has been sent yet.</EmptyState>} />
+      <Panel title={t("costSettingsPage.rates")} description={t("costSettingsPage.spendInACurrencyWithout")} flush>
+        <DataTable label={t("costSettingsPage.rates")} columns={columns} rows={rates ?? []} loading={!rates} getRowId={(r) => r.currency} minWidth={360} empty={<EmptyState title={t("costSettingsPage.noRates")}>{t("costSettingsPage.allSpendIsInThe")}</EmptyState>} />
       </Panel>
       {admin && (
-        <Panel title="Set a rate" description="A rate for a currency that has one replaces it.">
+        <Panel title={t("costSettingsPage.setARate")} description={t("costSettingsPage.aRateForACurrency")}>
           <form className="flex flex-col gap-2" onSubmit={putRate}>
             <div className="grid gap-2 sm:grid-cols-2">
-              <TextField label="Currency" value={rateCurrency} onChange={(e) => setRateCurrency(e.target.value)} placeholder="EUR" />
-              <TextField label={settings ? `One unit in ${settings.currency}` : "Rate"} inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="1.08" error={rateError} />
+              <TextField label={t("costSettingsPage.currency")} value={rateCurrency} onChange={(e) => setRateCurrency(e.target.value)} placeholder="EUR" />
+              <TextField label={settings ? t("costSettingsPage.oneUnitIn", { currency: settings.currency }) : t("costSettingsPage.rate")} inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="1.08" error={rateError} />
             </div>
             <div>
               <Button type="submit" variant="primary" disabled={!/^[A-Za-z]{3}$/.test(rateCurrency.trim()) || !(Number(rate) > 0)}>
-                Set rate
+                {t("costSettingsPage.setRate")}
               </Button>
             </div>
           </form>
@@ -697,11 +708,12 @@ function CostSettingsPage({ call, reload }: { call: Call; reload: () => void }) 
 }
 
 function SetupPage() {
+  const t = useT();
   const origin = window.location.origin;
   return (
     <>
-      <PageHeader title="Setup" description="A pipeline sends the bill, once a day or as often as the provider updates it. Cost reads it; it holds no cloud credentials." />
-      <Panel title="AWS" description="Cost Explorer's answer, turned into spend lines by tools/ce-to-records.mjs from the repository. Use COST_INGEST_TOKEN, set where cost runs, or an API token with the editor role.">
+      <PageHeader title={t("setupPage.setup")} description={t("setupPage.aPipelineSendsTheBill")} />
+      <Panel title="AWS" description={t("setupPage.costExplorerSAnswerTurned")}>
         <Code>{`aws ce get-cost-and-usage --time-period Start=2026-10-01,End=2026-10-22 --granularity DAILY \\
   --metrics UnblendedCost \\
   --group-by Type=DIMENSION,Key=LINKED_ACCOUNT Type=DIMENSION,Key=SERVICE Type=TAG,Key=team \\
@@ -709,18 +721,18 @@ function SetupPage() {
   | curl -sf -X POST -H "Authorization: Bearer $COST_INGEST_TOKEN" -H 'content-type: application/json' \\
     --data-binary @- "${origin}/api/v1/records?replace=true"`}</Code>
       </Panel>
-      <Panel title="Anything else" description="JSON, NDJSON or CSV, optionally gzipped. In CSV, tags are columns named tag:team.">
+      <Panel title={t("setupPage.anythingElse")} description={t("setupPage.jsonNdjsonOrCsvOptionally")}>
         <Code>{`curl -sf -X POST -H "Authorization: Bearer $COST_INGEST_TOKEN" -H 'content-type: text/csv' \\
   --data-binary @spend.csv "${origin}/api/v1/records"
 
 date,provider,account,service,amount,currency,tag:team
 2026-10-21,gcp,my-project,Compute Engine,412.30,USD,payments`}</Code>
       </Panel>
-      <Panel title="What to know">
+      <Panel title={t("setupPage.whatToKnow")}>
         <ul className="cost-list flex flex-col gap-1 text-sm text-fg-muted">
-          <li>A day sent again replaces what was there, so a daily job can send the whole month. With replace=true, lines the new export no longer has go too.</li>
-          <li>A team tag names the owner. Spend without one goes to the first rule that matches, or to nobody.</li>
-          <li>Credits are negative amounts. Spend in another currency counts once it has a rate under Settings.</li>
+          <li>{t("setupPage.aDaySentAgainReplaces")}</li>
+          <li>{t("setupPage.aTeamTagNamesThe")}</li>
+          <li>{t("setupPage.creditsAreNegativeAmountsSpend")}</li>
           <li>/metrics has month-to-date by team, each budget's share and burn rate, and open anomalies, for Prometheus.</li>
         </ul>
       </Panel>
@@ -730,9 +742,10 @@ date,provider,account,service,amount,currency,tag:team
 
 /** The first screen, until spend arrives. The summary is polled, so it gives way by itself. */
 function WelcomePage() {
+  const t = useT();
   return (
     <>
-      <PageHeader title="Get started" description="Send the first day of spend." actions={<StatusBadge tone="info">Waiting for spend</StatusBadge>} />
+      <PageHeader title={t("welcomePage.getStarted")} description={t("welcomePage.sendTheFirstDayOf")} actions={<StatusBadge tone="info">{t("welcomePage.waitingForSpend")}</StatusBadge>} />
       <SetupPage />
     </>
   );
@@ -742,8 +755,9 @@ function WelcomePage() {
 
 /** Account, Members, Sign-in and API tokens: the screens come from @openasy/auth. */
 function SettingsPage({ page }: { page: "account" | "members" | "signin" | "tokens" }) {
+  const t = useT();
   const { signOut, can } = useAuth();
-  if (page !== "account" && !can("admin")) return <EmptyState title="Admins only">Ask an admin of this cost for access.</EmptyState>;
+  if (page !== "account" && !can("admin")) return <EmptyState title={t("settingsPage.adminsOnly")}>{t("settingsPage.askAnAdminOfThis")}</EmptyState>;
   const titles = {
     account: ["Account", "Your profile, password, two-step verification and where you are signed in."],
     members: ["Members", "Who can sign in to this cost, and with which role. Viewers see everything; editors also send spend and decide on anomalies; admins also change budgets, rules, rates and settings, and manage members and tokens."],
@@ -758,7 +772,7 @@ function SettingsPage({ page }: { page: "account" | "members" | "signin" | "toke
         actions={
           page === "account" && (
             <Button icon={<LogOut />} onClick={() => void signOut()}>
-              Sign out
+              {t("settingsPage.signOut")}
             </Button>
           )
         }
@@ -769,6 +783,7 @@ function SettingsPage({ page }: { page: "account" | "members" | "signin" | "toke
 }
 
 function Product() {
+  const msg = useT();
   const [theme, setTheme] = useThemePreference();
   const { me, can } = useAuth();
   const route = parseRoute(usePath());
@@ -792,23 +807,23 @@ function Product() {
   }, [reload]);
 
   const nav = [
-    { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "spend", label: "Spend", icon: ChartColumn },
-    { id: "budgets", label: "Budgets", icon: Wallet, count: summary?.budgetsAtRisk || undefined },
-    { id: "anomalies", label: "Anomalies", icon: BellRing, count: summary?.anomaliesOpen || undefined },
-    { id: "rules", label: "Rules", icon: Waypoints },
+    { id: "overview", label: msg("product.overview"), icon: LayoutDashboard },
+    { id: "spend", label: msg("product.spend"), icon: ChartColumn },
+    { id: "budgets", label: msg("product.budgets"), icon: Wallet, count: summary?.budgetsAtRisk || undefined },
+    { id: "anomalies", label: msg("product.anomalies"), icon: BellRing, count: summary?.anomaliesOpen || undefined },
+    { id: "rules", label: msg("product.rules"), icon: Waypoints },
   ];
   const footerNav = [
-    { id: "setup", label: "Setup", icon: Settings2 },
-    { id: "settings", label: "Settings", icon: SlidersHorizontal },
+    { id: "setup", label: msg("product.setup"), icon: Settings2 },
+    { id: "settings", label: msg("product.settings"), icon: SlidersHorizontal },
     ...(can("admin")
       ? [
-          { id: "members", label: "Members", icon: Users },
-          { id: "signin", label: "Sign-in", icon: LogIn },
-          { id: "tokens", label: "API tokens", icon: KeyRound },
+          { id: "members", label: msg("product.members"), icon: Users },
+          { id: "signin", label: msg("product.signIn"), icon: LogIn },
+          { id: "tokens", label: msg("product.apiTokens"), icon: KeyRound },
         ]
       : []),
-    { id: "account", label: "Account", icon: UserRound },
+    { id: "account", label: msg("product.account"), icon: UserRound },
   ];
   const roleName = me.user.role.charAt(0).toUpperCase() + me.user.role.slice(1);
   const needsData = route.page === "overview" || route.page === "spend" || route.page === "budgets" || route.page === "anomalies";
@@ -830,8 +845,8 @@ function Product() {
       onThemeChange={setTheme}
     >
       {needsData && !summary ? (
-        <EmptyState title="Loading" icon={<Coins />}>
-          Reading the spend.
+        <EmptyState title={msg("product.loading")} icon={<Coins />}>
+          {msg("product.readingTheSpend")}
         </EmptyState>
       ) : route.page === "overview" && summary && !summary.hasData ? (
         <WelcomePage />
