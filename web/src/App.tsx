@@ -25,6 +25,7 @@ import {
   useThemePreference,
 } from "@openasy/ui";
 import { AccountSettings, AuthGate, MembersSettings, SignInSettings, TokensSettings, useAuth, useInstallBrand } from "@openasy/auth/react";
+import colophon from "virtual:openasy-colophon";
 import {
   BellRing,
   ChartColumn,
@@ -61,7 +62,7 @@ import {
 } from "./api.ts";
 import { useT, type T } from "./i18n.ts";
 
-const PAGES = ["spend", "budgets", "anomalies", "rules", "settings", "setup", "account", "members", "signin", "tokens"] as const;
+const PAGES = ["spend", "budgets", "anomalies", "rules", "settings", "setup", "account", "members", "signin", "tokens", "about"] as const;
 type Route = { page: "overview" | (typeof PAGES)[number] };
 /** The first path segments that are pages of this UI, for followLinks. */
 export const PATHS = ["overview", ...PAGES];
@@ -1154,6 +1155,7 @@ function Product() {
   return (
     <AppShell
       product="cost"
+      about={colophon}
       nav={nav}
       activeNav={route.page}
       onNavigate={(id) => navigate(`/${id}`)}
