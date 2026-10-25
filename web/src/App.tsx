@@ -23,8 +23,10 @@ import {
   type Column,
   type ProductId,
   useThemePreference,
+  toLocale,
+  useLocalePreference,
 } from "@openasy/ui";
-import { AccountSettings, AuthGate, MembersSettings, SignInSettings, TokensSettings, useAuth, useInstallBrand } from "@openasy/auth/react";
+import { AccountSettings, AuthGate, MembersSettings, SignInSettings, TokensSettings, useAccountMenu, useAuth, useInstallBrand } from "@openasy/auth/react";
 import colophon from "virtual:openasy-colophon";
 import {
   BellRing,
@@ -35,7 +37,6 @@ import {
   LogIn,
   LogOut,
   Plus,
-  Settings2,
   SlidersHorizontal,
   Trash2,
   UserRound,
@@ -43,7 +44,7 @@ import {
   Wallet,
   Waypoints,
 } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   api,
   MfaSetupRequired,
@@ -61,6 +62,7 @@ import {
   type Summary,
 } from "./api.ts";
 import { useT, type T } from "./i18n.ts";
+import { search } from "./search.ts";
 
 const PAGES = ["spend", "budgets", "anomalies", "rules", "settings", "setup", "account", "members", "signin", "tokens", "about"] as const;
 type Route = { page: "overview" | (typeof PAGES)[number] };
@@ -111,8 +113,7 @@ function MissingRates({ currencies }: { currencies: string[] }) {
   if (!currencies.length) return null;
   return (
     <Callout tone="warning" title={t("missingRates.spendInIsLeftOut", { value: currencies.join(", ") })}>
-      {t("missingRates.nobodyHasSaidWhat")} {currencies.length === 1 ? t("missingRates.itIs") : t("missingRates.theyAre")}{" "}
-      {t("missingRates.worthInTheReportingCurrency")} <a href="/settings">{t("missingRates.settings")}</a>.
+      {t("missingRates.nobodyHasSaidWhatTheyAreWorth", { count: currencies.length })} <a href="/settings">{t("missingRates.settings")}</a>.
     </Callout>
   );
 }
@@ -162,7 +163,7 @@ function OverviewPage({ call, summary }: { call: Call; summary: Summary }) {
         <Panel title={msg("overviewPage.spendPerDay")}>
           <TimeSeriesChart
             label={msg("overviewPage.spendPerDay")}
-            series={[{ id: "spend", name: "Spend", data: daily.groups.map((g) => g.amount) }]}
+            series={[{ id: "spend", name: msg("charts.spend"), data: daily.groups.map((g) => g.amount) }]}
             labels={daily.groups.map((g) => day(g.key))}
             format={(v) => money(v, c)}
             area
@@ -340,7 +341,7 @@ function SpendPage({ call, summary }: { call: Call; summary: Summary }) {
         <Panel title={t("spendPage.overTime")}>
           <TimeSeriesChart
             label={t("spendPage.spendOverTime")}
-            series={[{ id: "spend", name: "Spend", data: spend.groups.map((g) => g.amount) }]}
+            series={[{ id: "spend", name: t("charts.spend"), data: spend.groups.map((g) => g.amount) }]}
             labels={spend.groups.map((g) => g.key)}
             format={(v) => money(v, c)}
             area
@@ -595,7 +596,11 @@ function BudgetsPage({ call, summary, reload }: { call: Call; summary: Summary; 
 
 // ---------------------------------------------------------------- Anomalies
 
-const ANOMALY_LABEL: Record<AnomalyStatus, string> = { new: "New", acknowledged: "Acknowledged", expected: "Expected" };
+const ANOMALY_LABEL = (t: T): Record<AnomalyStatus, string> => ({
+  new: t("anomalyStatus.new"),
+  acknowledged: t("anomalyStatus.acknowledged"),
+  expected: t("anomalyStatus.expected"),
+});
 const ANOMALY_TONE: Record<AnomalyStatus, "warning" | "neutral" | "info"> = { new: "warning", acknowledged: "neutral", expected: "info" };
 
 function DecideDialog({ anomaly, call, onClose, onSaved }: { anomaly: Anomaly; call: Call; onClose: () => void; onSaved: () => void }) {
@@ -698,7 +703,7 @@ function AnomaliesPage({ call, summary, reload }: { call: Call; summary: Summary
       sortValue: (a) => a.extra,
       cell: (a) => <span className="text-danger">+{money(a.extra, a.currency)}</span>,
     },
-    { id: "status", header: t("anomaliesPage.status"), cell: (a) => <StatusBadge tone={ANOMALY_TONE[a.status]}>{ANOMALY_LABEL[a.status]}</StatusBadge> },
+    { id: "status", header: t("anomaliesPage.status"), cell: (a) => <StatusBadge tone={ANOMALY_TONE[a.status]}>{ANOMALY_LABEL(t)[a.status]}</StatusBadge> },
     {
       id: "reason",
       header: t("anomaliesPage.reason"),
@@ -1109,11 +1114,14 @@ function SettingsPage({ page }: { page: "account" | "members" | "signin" | "toke
 function Product() {
   const msg = useT();
   const [theme, setTheme] = useThemePreference();
+  const [, setLocale] = useLocalePreference();
   const { me, can } = useAuth();
+  const account = useAccountMenu();
   const route = parseRoute(usePath());
   const [summary, setSummary] = useState<Summary>();
   const [products, setProducts] = useState<Array<ProductLink & { id: ProductId }>>([]);
   const call = useApi();
+  const onSearch = useMemo(() => search(call, msg), [call, msg]);
 
   // The install's other products (OPENASY_PRODUCTS), for the switcher; ids this UI does not know are left out.
   useEffect(() => {
@@ -1138,7 +1146,6 @@ function Product() {
     { id: "rules", label: msg("product.rules"), icon: Waypoints },
   ];
   const footerNav = [
-    { id: "setup", label: msg("product.setup"), icon: Settings2 },
     { id: "settings", label: msg("product.settings"), icon: SlidersHorizontal },
     ...(can("admin")
       ? [
@@ -1155,6 +1162,7 @@ function Product() {
   return (
     <AppShell
       product="cost"
+      onSearch={onSearch}
       about={colophon}
       nav={nav}
       activeNav={route.page}
@@ -1164,10 +1172,12 @@ function Product() {
         const to = products.find((p) => p.id === id);
         if (to) window.location.assign(to.url);
       }}
-      footerNav={footerNav}
-      user={{ name: me.user.name, role: roleName }}
+      footerNav={account.settings(footerNav)}
+      setup
+      user={{ name: me.user.name, role: roleName, ...account.user }}
       theme={theme}
       onThemeChange={setTheme}
+      onLanguageChange={(code) => setLocale(toLocale(code))}
     >
       {needsData && !summary ? (
         <EmptyState title={msg("product.loading")} icon={<Coins />}>
@@ -1199,9 +1209,10 @@ function Product() {
 export function App() {
   const installBrand = useInstallBrand();
   const [theme] = useThemePreference();
+  const [locale] = useLocalePreference();
   return (
     // The install's brand from config/brand.env (ADR 0053); OpenAsy's own look where it sets none.
-    <BrandProvider theme={theme} brand={{ name: "OpenAsy", organization: undefined, ...installBrand }} className="min-h-screen">
+    <BrandProvider theme={theme} locale={locale} brand={{ name: "OpenAsy", organization: undefined, ...installBrand }} className="min-h-screen">
       <AuthGate product="OpenAsy Cost">
         <Product />
       </AuthGate>

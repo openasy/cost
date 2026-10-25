@@ -1,10 +1,8 @@
 {
   "missingRates": {
     "spendInIsLeftOut": "Spend in {{value}} is left out",
-    "nobodyHasSaidWhat": "Nobody has said what",
-    "itIs": "it is",
-    "theyAre": "they are",
-    "worthInTheReportingCurrency": "worth in the reporting currency. Add a rate under",
+    "nobodyHasSaidWhatTheyAreWorth_one": "Nobody has said what it is worth in the reporting currency. Add a rate under",
+    "nobodyHasSaidWhatTheyAreWorth_other": "Nobody has said what they are worth in the reporting currency. Add a rate under",
     "settings": "Settings"
   },
   "overviewPage": {
@@ -218,5 +216,17 @@
   },
   "budgetLabel": {
     "onTrack": "On track"
+  },
+  "search": {
+    "budget": "Budget",
+    "budgetDetail": "{{percent}}% spent in {{month}}"
+  },
+  "anomalyStatus": {
+    "new": "New",
+    "acknowledged": "Acknowledged",
+    "expected": "Expected"
+  },
+  "charts": {
+    "spend": "Spend"
   }
 }
