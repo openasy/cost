@@ -23,7 +23,12 @@
     "servicesThisMonth": "Dienste in diesem Monat",
     "spendByService": "Ausgaben nach Dienst",
     "whatMoved": "Was sich bewegt hat",
-    "toAgainstTheSameNumber": "{{day}} bis {{day2}}, gegenüber derselben Anzahl Tage davor."
+    "toAgainstTheSameNumber": "{{day}} bis {{day2}}, gegenüber derselben Anzahl Tage davor.",
+    "owned": "Zugeordnete Ausgaben",
+    "ownedDetail": "Der Anteil der Ausgaben dieses Monats, dem ein Team-Tag oder eine Zuordnungsregel einen Verantwortlichen gibt.",
+    "ownedCaption": "{{percent}} ohne Verantwortlichen",
+    "thisMonthCaption": "diesen Monat",
+    "otherServices": "Andere Dienste"
   },
   "moversTable": {
     "now": "Jetzt",

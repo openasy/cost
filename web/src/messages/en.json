@@ -23,7 +23,12 @@
     "servicesThisMonth": "Services this month",
     "spendByService": "Spend by service",
     "whatMoved": "What moved",
-    "toAgainstTheSameNumber": "{{day}} to {{day2}}, against the same number of days before."
+    "toAgainstTheSameNumber": "{{day}} to {{day2}}, against the same number of days before.",
+    "owned": "Owned spend",
+    "ownedDetail": "The share of this month's spend that a team tag or an allocation rule gives an owner.",
+    "ownedCaption": "{{percent}} has no owner",
+    "thisMonthCaption": "this month",
+    "otherServices": "Other services"
   },
   "moversTable": {
     "now": "Now",

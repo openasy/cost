@@ -23,7 +23,12 @@
     "servicesThisMonth": "Bu ay hizmetler",
     "spendByService": "Hizmete göre harcama",
     "whatMoved": "Değişenler",
-    "toAgainstTheSameNumber": "{{day}} ile {{day2}} arası, önceki aynı sayıda güne göre."
+    "toAgainstTheSameNumber": "{{day}} ile {{day2}} arası, önceki aynı sayıda güne göre.",
+    "owned": "Sahibi olan harcama",
+    "ownedDetail": "Bu ayın harcamasında bir takım etiketi ya da dağıtım kuralıyla sahibi belli olan pay.",
+    "ownedCaption": "{{percent}} sahipsiz",
+    "thisMonthCaption": "bu ay",
+    "otherServices": "Diğer servisler"
   },
   "moversTable": {
     "now": "Şimdi",

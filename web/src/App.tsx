@@ -20,29 +20,37 @@ import {
   TextField,
   TimeSeriesChart,
   usePath,
-  type Column,
-  type ProductId,
   useThemePreference,
   toLocale,
   useLocalePreference,
+  DonutChart,
+  Gauge,
+  OverviewGrid,
+  type Column,
+  type ProductId,
 } from "@openasy/ui";
 import { AccountSettings, AuthGate, MembersSettings, SignInSettings, TokensSettings, useAccountMenu, useAuth, useInstallBrand } from "@openasy/auth/react";
 import colophon from "virtual:openasy-colophon";
 import {
   BellRing,
+  CalendarDays,
   ChartColumn,
   Coins,
   KeyRound,
   LayoutDashboard,
   LogIn,
   LogOut,
+  PiggyBank,
   Plus,
   SlidersHorizontal,
+  Tag,
   Trash2,
+  TrendingUp,
   UserRound,
   Users,
   Wallet,
   Waypoints,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
@@ -140,10 +148,16 @@ function OverviewPage({ call, summary }: { call: Call; summary: Summary }) {
       <PageHeader title={msg("overviewPage.overview")} description={msg("overviewPage.upToIn", { month: s.month, day: day(s.asOf), c })} />
       <MissingRates currencies={s.missingRates} />
       <KpiGrid minWidth={160}>
-        <KpiCard label={msg("overviewPage.thisMonthSoFar")} value={money(s.monthToDate, c)} />
+        <KpiCard
+          label={msg("overviewPage.thisMonthSoFar")}
+          value={money(s.monthToDate, c)}
+          icon={Wallet}
+          trend={daily && daily.groups.length > 1 ? daily.groups.map((g) => g.amount) : undefined}
+        />
         <KpiCard
           label={msg("overviewPage.forecastForTheMonth")}
           value={money(s.forecast, c)}
+          icon={TrendingUp}
           delta={
             vsLast === null
               ? undefined
@@ -154,24 +168,54 @@ function OverviewPage({ call, summary }: { call: Call; summary: Summary }) {
                 }
           }
         />
-        <KpiCard label={msg("overviewPage.perDayLast7Days")} value={money(s.dailyRunRate, c)} />
-        <KpiCard label={msg("overviewPage.nobodyOwns")} value={percent(s.untaggedShare)} tone={s.untaggedShare > 0.2 ? "warning" : "success"} href="/rules" />
-        <KpiCard label={msg("overviewPage.openAnomalies")} value={s.anomaliesOpen} tone={s.anomaliesOpen ? "warning" : "success"} href="/anomalies" />
-        <KpiCard label={msg("overviewPage.budgetsAtRisk")} value={s.budgetsAtRisk} tone={s.budgetsAtRisk ? "danger" : "success"} href="/budgets" />
+        <KpiCard label={msg("overviewPage.perDayLast7Days")} value={money(s.dailyRunRate, c)} icon={CalendarDays} />
+        <KpiCard
+          label={msg("overviewPage.nobodyOwns")}
+          value={percent(s.untaggedShare)}
+          icon={Tag}
+          tone={s.untaggedShare > 0.2 ? "warning" : "success"}
+          href="/rules"
+        />
+        <KpiCard
+          label={msg("overviewPage.openAnomalies")}
+          value={s.anomaliesOpen}
+          icon={Zap}
+          tone={s.anomaliesOpen ? "warning" : "success"}
+          href="/anomalies"
+        />
+        <KpiCard
+          label={msg("overviewPage.budgetsAtRisk")}
+          value={s.budgetsAtRisk}
+          icon={PiggyBank}
+          tone={s.budgetsAtRisk ? "danger" : "success"}
+          href="/budgets"
+        />
       </KpiGrid>
-      {daily && daily.groups.length > 1 && (
+      <OverviewGrid>
         <Panel title={msg("overviewPage.spendPerDay")}>
-          <TimeSeriesChart
-            label={msg("overviewPage.spendPerDay")}
-            series={[{ id: "spend", name: msg("charts.spend"), data: daily.groups.map((g) => g.amount) }]}
-            labels={daily.groups.map((g) => day(g.key))}
-            format={(v) => money(v, c)}
-            area
-            height={180}
+          {daily && daily.groups.length > 1 ? (
+            <TimeSeriesChart
+              label={msg("overviewPage.spendPerDay")}
+              series={[{ id: "spend", name: msg("charts.spend"), data: daily.groups.map((g) => g.amount) }]}
+              labels={daily.groups.map((g) => day(g.key))}
+              format={(v) => money(v, c)}
+              area
+              height={200}
+            />
+          ) : (
+            <p className="m-0 text-sm text-fg-muted">{msg("overviewPage.noSpendThisMonth")}</p>
+          )}
+        </Panel>
+        <Panel title={msg("overviewPage.owned")} description={msg("overviewPage.ownedDetail")}>
+          <Gauge
+            label={msg("overviewPage.owned")}
+            value={Math.round((1 - s.untaggedShare) * 1000) / 10}
+            tone={s.untaggedShare > 0.2 ? "warning" : "success"}
+            caption={msg("overviewPage.ownedCaption", { percent: percent(s.untaggedShare) })}
           />
         </Panel>
-      )}
-      <div className="grid gap-3 lg:grid-cols-2">
+      </OverviewGrid>
+      <OverviewGrid layout="halves">
         <Panel title={msg("overviewPage.teamsThisMonth")} description={msg("overviewPage.aTeamTagOnA")}>
           {s.topTeams.length ? (
             <BarList
@@ -185,16 +229,29 @@ function OverviewPage({ call, summary }: { call: Call; summary: Summary }) {
         </Panel>
         <Panel title={msg("overviewPage.servicesThisMonth")}>
           {s.topServices.length ? (
-            <BarList
+            <DonutChart
               label={msg("overviewPage.spendByService")}
-              items={s.topServices.map((t) => ({ id: t.key, label: t.key, value: t.amount }))}
+              caption={msg("overviewPage.thisMonthCaption")}
               format={(v) => money(v, c)}
+              slices={[
+                ...s.topServices.slice(0, 4).map((t) => ({ id: t.key, name: t.key, value: t.amount })),
+                ...(s.topServices.length > 4
+                  ? [
+                      {
+                        id: "other",
+                        name: msg("overviewPage.otherServices"),
+                        value: s.topServices.slice(4).reduce((n, t) => n + t.amount, 0),
+                        color: "var(--oa-fg-subtle)",
+                      },
+                    ]
+                  : []),
+              ]}
             />
           ) : (
             <p className="m-0 text-sm text-fg-muted">{msg("overviewPage.noSpendThisMonth")}</p>
           )}
         </Panel>
-      </div>
+      </OverviewGrid>
       {movers && movers.movers.length > 0 && (
         <Panel
           title={msg("overviewPage.whatMoved")}
