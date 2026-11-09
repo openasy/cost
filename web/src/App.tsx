@@ -69,7 +69,7 @@ import {
   type Spend,
   type Summary,
 } from "./api.ts";
-import { useT, type T } from "./i18n.ts";
+import { useT, type T, viewerLocale, setViewerLocale, fixed } from "./i18n.ts";
 import { search } from "./search.ts";
 
 const PAGES = ["spend", "budgets", "anomalies", "rules", "settings", "setup", "account", "members", "signin", "tokens", "about"] as const;
@@ -103,13 +103,13 @@ type Call = ReturnType<typeof useApi>;
 /** Amounts in the reporting currency, without cents once they are large. */
 function money(amount: number, currency: string): string {
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: Math.abs(amount) >= 1000 ? 0 : 2 }).format(amount);
+    return new Intl.NumberFormat(viewerLocale(), { style: "currency", currency, maximumFractionDigits: Math.abs(amount) >= 1000 ? 0 : 2 }).format(amount);
   } catch {
-    return `${amount.toFixed(2)} ${currency}`;
+    return `${fixed(amount, 2)} ${currency}`;
   }
 }
 const percent = (share: number) => `${Math.round(share * 1000) / 10}%`;
-const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(viewerLocale(), { month: "short", day: "numeric", timeZone: "UTC" });
 
 function Code({ children }: { children: ReactNode }) {
   return <pre className="m-0 overflow-x-auto rounded-md bg-subtle px-2.5 py-2 font-mono text-xs text-fg">{children}</pre>;
@@ -561,7 +561,7 @@ function BudgetsPage({ call, summary, reload }: { call: Call; summary: Summary; 
       header: t("budgetsPage.burnRate"),
       align: "right",
       sortValue: (b) => b.burnRate,
-      cell: (b) => <span className={b.burnRate > 1 ? "text-warning" : undefined}>{b.burnRate.toFixed(2)}</span>,
+      cell: (b) => <span className={b.burnRate > 1 ? "text-warning" : undefined}>{fixed(b.burnRate, 2)}</span>,
     },
     ...(can("admin")
       ? [
@@ -1267,6 +1267,7 @@ export function App() {
   const installBrand = useInstallBrand();
   const [theme] = useThemePreference();
   const [locale] = useLocalePreference();
+  setViewerLocale(locale);
   return (
     // The install's brand from config/brand.env (ADR 0053); OpenAsy's own look where it sets none.
     <BrandProvider theme={theme} locale={locale} brand={{ name: "OpenAsy", organization: undefined, ...installBrand }} className="min-h-screen">
