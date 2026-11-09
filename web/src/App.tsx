@@ -1109,7 +1109,7 @@ date,provider,account,service,amount,currency,tag:team
           <li>{t("setupPage.aDaySentAgainReplaces")}</li>
           <li>{t("setupPage.aTeamTagNamesThe")}</li>
           <li>{t("setupPage.creditsAreNegativeAmountsSpend")}</li>
-          <li>/metrics has month-to-date by team, each budget's share and burn rate, and open anomalies, for Prometheus.</li>
+          <li>{t("setupPage.metricsHasMonthToDate")}</li>
         </ul>
       </Panel>
     </>

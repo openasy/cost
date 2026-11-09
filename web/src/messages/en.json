@@ -176,7 +176,8 @@
     "whatToKnow": "What to know",
     "aDaySentAgainReplaces": "A day sent again replaces what was there, so a daily job can send the whole month. With replace=true, lines the new export no longer has go too.",
     "aTeamTagNamesThe": "A team tag names the owner. Spend without one goes to the first rule that matches, or to nobody.",
-    "creditsAreNegativeAmountsSpend": "Credits are negative amounts. Spend in another currency counts once it has a rate under Settings."
+    "creditsAreNegativeAmountsSpend": "Credits are negative amounts. Spend in another currency counts once it has a rate under Settings.",
+    "metricsHasMonthToDate": "/metrics has month-to-date by team, each budget's share and burn rate, and open anomalies, for Prometheus."
   },
   "welcomePage": {
     "getStarted": "Get started",

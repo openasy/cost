@@ -176,7 +176,8 @@
     "whatToKnow": "Bilinmesi gerekenler",
     "aDaySentAgainReplaces": "Yeniden gönderilen bir gün oradakinin yerini alır; böylece günlük bir iş ayın tamamını gönderebilir. replace=true ile yeni dışa aktarımda artık olmayan satırlar da gider.",
     "aTeamTagNamesThe": "team etiketi sahibini belirtir. Etiketi olmayan harcama, eşleşen ilk kurala ya da hiç kimseye gider.",
-    "creditsAreNegativeAmountsSpend": "Krediler eksi tutarlardır. Başka bir para birimindeki harcama, Ayarlar'da bir kuru olunca sayılır."
+    "creditsAreNegativeAmountsSpend": "Krediler eksi tutarlardır. Başka bir para birimindeki harcama, Ayarlar'da bir kuru olunca sayılır.",
+    "metricsHasMonthToDate": "/metrics, Prometheus için ekip başına ay başından bugüne harcamayı, her bütçenin kullanılan payını ve tüketim hızını, açık anormallikleri verir."
   },
   "welcomePage": {
     "getStarted": "Başlayın",

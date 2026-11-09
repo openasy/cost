@@ -176,7 +176,8 @@
     "whatToKnow": "Gut zu wissen",
     "aDaySentAgainReplaces": "Ein erneut gesendeter Tag ersetzt, was da war, sodass ein täglicher Job den ganzen Monat senden kann. Mit replace=true fallen auch Zeilen weg, die der neue Export nicht mehr hat.",
     "aTeamTagNamesThe": "Ein team-Tag nennt die Zuständigen. Ausgaben ohne eines gehen an die erste passende Regel oder an niemanden.",
-    "creditsAreNegativeAmountsSpend": "Gutschriften sind negative Beträge. Ausgaben in einer anderen Währung zählen, sobald sie unter Einstellungen einen Kurs hat."
+    "creditsAreNegativeAmountsSpend": "Gutschriften sind negative Beträge. Ausgaben in einer anderen Währung zählen, sobald sie unter Einstellungen einen Kurs hat.",
+    "metricsHasMonthToDate": "/metrics liefert Prometheus die Kosten seit Monatsbeginn je Team, den Anteil und die Verbrauchsrate jedes Budgets sowie offene Anomalien."
   },
   "welcomePage": {
     "getStarted": "Erste Schritte",
