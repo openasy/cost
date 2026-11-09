@@ -1,6 +1,6 @@
 {
   "name": "@openasy/cost",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "OpenAsy Cost: cloud spend by team and tag, with budgets, forecasts and anomaly alerts.",
   "license": "AGPL-3.0-only",
